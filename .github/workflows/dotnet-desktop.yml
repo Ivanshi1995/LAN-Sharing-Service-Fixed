@@ -41,6 +41,7 @@ jobs:
           $exe = "${{ runner.temp }}/singlefile/LanFileShare.exe"
           $report = "${{ runner.temp }}/singlefile-verification.json"
           $data = "${{ runner.temp }}/singlefile-data"
+          Get-ChildItem "${{ runner.temp }}/singlefile" -Recurse | Select-Object FullName, Length
           if (@(Get-ChildItem "${{ runner.temp }}/singlefile" -File).Count -ne 1) { throw "发布目录必须只有一个 EXE" }
           $process = Start-Process -FilePath $exe -ArgumentList @('--smoke-test', ('"' + $report + '"'), ('"' + $data + '"')) -WindowStyle Hidden -PassThru
           if (!$process.WaitForExit(60000)) { $process.Kill(); throw "单文件验证超时" }
