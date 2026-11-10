@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>共享系统IP网管后台</title>
+  <script src="/CDN/tailwindcss-play.js"></script>
+  <link href="/CDN/font-awesome.min.css" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#165DFF',
+            success: '#00B42A',
+            danger: '#F53F3F',
+            neutral: '#86909C'
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background: #f8fafc; }
+    .table-shadow { box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.06); }
+    .cell-padding { padding: 14px 16px; }
+    .fade-in { animation: fadeIn 0.25s ease-in-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+    .speed-upload { color: #22c55e; }
+    .speed-download { color: #3b82f6; }
+    .pulse-dot { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+  </style>
+</head>
+<body class="min-h-screen text-slate-800">
+  <div class="max-w-[1400px] mx-auto px-6 py-8">
+
+    <!-- 头部 -->
+    <header class="mb-8">
+      <div class="flex items-center justify-between">
+        <div>
+          <h1 class="text-[24px] font-semibold text-slate-900 flex items-center gap-3">
+            <i class="fa fa-tachometer text-primary text-2xl"></i>
+            共享系统IP网管后台
+          </h1>
+          <p class="text-neutral mt-1">统一管理在线用户IP、带宽限速与账号封禁状态</p>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="flex items-center gap-2 text-sm text-neutral" id="connection-status">
+            <span class="w-2 h-2 rounded-full bg-green-500 pulse-dot"></span>
+            已连接
+          </span>
+          <button onclick="refreshData(true)" class="px-3 py-1.5 bg-white border border-slate-200 hover:border-primary rounded-lg text-sm font-medium transition-colors flex items-center gap-1" id="btn-refresh">
+            <i class="fa fa-refresh"></i> 刷新
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- 统计卡片 -->
+    <div class="grid grid-cols-5 gap-4 mb-6 fade-in">
+      <div class="bg-white rounded-xl table-shadow p-4">
+        <div class="text-sm text-neutral mb-1">在线用户</div>
+        <div class="text-2xl font-bold text-slate-800" id="stat-online">0</div>
+      </div>
+      <div class="bg-white rounded-xl table-shadow p-4">
+        <div class="text-sm text-neutral mb-1">公共用户</div>
+        <div class="text-2xl font-bold text-amber-600" id="stat-public">0</div>
+      </div>
+      <div class="bg-white rounded-xl table-shadow p-4">
+        <div class="text-sm text-neutral mb-1">封禁IP</div>
+        <div class="text-2xl font-bold text-danger" id="stat-banned">0</div>
+      </div>
+      <div class="bg-white rounded-xl table-shadow p-4">
+        <div class="text-sm text-neutral mb-1">总上行速度</div>
+        <div class="text-2xl font-bold speed-upload" id="stat-total-up">0 B/s</div>
+      </div>
+      <div class="bg-white rounded-xl table-shadow p-4">
+        <div class="text-sm text-neutral mb-1">总下行速度</div>
+        <div class="text-2xl font-bold speed-download" id="stat-total-down">0 B/s</div>
+      </div>
+    </div>
+
+    <!-- 数据表格 -->
+    <div class="bg-white rounded-xl table-shadow overflow-hidden fade-in">
+      <div class="overflow-x-auto">
+        <table class="w-full border-collapse">
+          <thead>
+            <tr class="bg-slate-100 text-sm text-slate-600">
+              <th class="cell-padding text-left font-medium">用户名</th>
+              <th class="cell-padding text-left font-medium">IP地址</th>
+              <th class="cell-padding text-left font-medium">在线状态</th>
+              <th class="cell-padding text-left font-medium">账号状态</th>
+              <th class="cell-padding text-left font-medium">当前上行</th>
+              <th class="cell-padding text-left font-medium">当前下行</th>
+              <th class="cell-padding text-left font-medium">上行限速(MB/s)</th>
+              <th class="cell-padding text-left font-medium">下行限速(MB/s)</th>
+              <th class="cell-padding text-center font-medium">操作</th>
+            </tr>
+          </thead>
+          <tbody id="userTableBody">
+            <tr>
+              <td colspan="9" class="cell-padding text-center text-neutral">
+                <i class="fa fa-spinner fa-spin mr-2"></i>加载中...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 底部提示 -->
+    <div class="mt-4 text-sm text-neutral flex items-center justify-between">
+      <span><i class="fa fa-info-circle mr-1"></i> 修改限速数值后自动生效；封禁IP对当前正在下载的任务无效，解封恢复网络</span>
+      <span class="text-xs" id="last-update-time">--</span>
+    </div>
+  </div>
+
+  <script>
+    let userData = [];
+    let pollingTimer = null;
+    let isLoading = false;
+    let pollingPaused = false;
+    let rendering = false;  // renderTable 重建DOM期间忽略 focus 事件
+
+    // 速度单位转换
+    function formatSpeed(bps) {
+      if (bps < 1024) return bps.toFixed(1) + ' B/s';
+      if (bps < 1024 * 1024) return (bps / 1024).toFixed(1) + ' KB/s';
+      if (bps < 1024 * 1024 * 1024) return (bps / (1024 * 1024)).toFixed(2) + ' MB/s';
+      return (bps / (1024 * 1024 * 1024)).toFixed(2) + ' GB/s';
+    }
+
+    // 获取数据
+    async function refreshData(force = false) {
+      if (isLoading) return;
+      if (!force && pollingPaused) return;  // 暂停轮询期间跳过定时刷新
+      isLoading = true;
+      const btn = document.getElementById('btn-refresh');
+      btn.disabled = true;
+      btn.querySelector('.fa-refresh').classList.add('fa-spin');
+
+      try {
+        const res = await fetch('/api/bandwidth/users', { credentials: 'same-origin' });
+        if (res.status === 403) {
+          // 未认证 → 重定向到登录页
+          window.location.href = '/?redirect=' + encodeURIComponent('/bandwidth');
+          return;
+        }
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        userData = await res.json();
+
+        if (!Array.isArray(userData)) userData = [];
+        renderTable();
+        updateStats();
+        document.getElementById('last-update-time').textContent =
+          '最后更新: ' + new Date().toLocaleTimeString('zh-CN');
+        updateConnectionStatus(true);
+      } catch (err) {
+        console.error('Failed to fetch bandwidth data:', err);
+        updateConnectionStatus(false);
+      } finally {
+        isLoading = false;
+        btn.disabled = false;
+        btn.querySelector('.fa-refresh').classList.remove('fa-spin');
+      }
+    }
+
+    function updateConnectionStatus(connected) {
+      const el = document.getElementById('connection-status');
+      const dot = el.querySelector('span');
+      if (connected) {
+        dot.className = 'w-2 h-2 rounded-full bg-green-500 pulse-dot';
+        el.innerHTML = el.innerHTML.replace(/已断开|已连接/, '已连接');
+        el.lastChild.textContent = ' 已连接';
+      } else {
+        dot.className = 'w-2 h-2 rounded-full bg-red-500';
+        el.lastChild.textContent = ' 已断开';
+      }
+    }
+
+    function updateStats() {
+      const online = userData.filter(u => u.isOnline);
+      const publicUsers = userData.filter(u => (u.userId || '').startsWith('pub:'));
+      const publicOnline = publicUsers.filter(u => u.isOnline);
+      const banned = userData.filter(u => u.isBlacklisted);
+      const totalUp = online.reduce((s, u) => s + (u.upSpeed || 0), 0);
+      const totalDown = online.reduce((s, u) => s + (u.downSpeed || 0), 0);
+
+      document.getElementById('stat-online').textContent = online.length;
+      document.getElementById('stat-public').textContent = publicOnline.length;
+      document.getElementById('stat-banned').textContent = banned.length;
+      document.getElementById('stat-total-up').textContent = formatSpeed(totalUp);
+      document.getElementById('stat-total-down').textContent = formatSpeed(totalDown);
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById('userTableBody');
+
+      // 记录当前是否有输入框获得焦点
+      const activeInput = document.activeElement;
+      const wasEditing = activeInput && activeInput.tagName === 'INPUT' &&
+        activeInput.type === 'number' && activeInput.dataset.userid;
+      const editingUserId = wasEditing ? activeInput.dataset.userid : null;
+      const editingType = wasEditing ? activeInput.dataset.type : null;
+
+      // DOM重建期间屏蔽 focus 事件，避免 focusout/focusin 干扰轮询状态
+      rendering = true;
+
+      if (userData.length === 0) {
+        rendering = false;
+        tbody.innerHTML = `<tr><td colspan="9" class="cell-padding text-center text-neutral">
+          <i class="fa fa-inbox mr-1"></i>暂无用户数据</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = userData.map(user => {
+        const statusClass = user.isBlacklisted
+          ? 'bg-danger/10 text-danger px-2 py-1 rounded text-xs'
+          : 'bg-success/10 text-success px-2 py-1 rounded text-xs';
+        const statusText = user.isBlacklisted ? '封禁' : '正常';
+
+        const onlineClass = user.isOnline
+          ? 'bg-green-100 text-green-700 px-2 py-1 rounded text-xs'
+          : 'bg-slate-100 text-slate-500 px-2 py-1 rounded text-xs';
+        const onlineText = user.isOnline ? '在线' : '离线';
+
+        const userId = escapeHtml(user.userId || '');
+        const ip = escapeHtml(user.ip || '--');
+        const username = escapeHtml(user.username || '--');
+        const isPublic = userId.startsWith('pub:') || userId.startsWith('pub_');
+
+        // 公共用户标识
+        const userTypeBadge = isPublic
+          ? '<span class="bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded text-xs ml-2" title="公共共享用户（无需登录）">公共</span>'
+          : '';
+
+        return `
+          <tr class="border-t border-slate-100 hover:bg-slate-50 transition-colors ${isPublic ? 'bg-amber-50/30' : ''}">
+            <td class="cell-padding font-medium">
+              ${username}${userTypeBadge}
+            </td>
+            <td class="cell-padding font-mono text-sm">${ip}</td>
+            <td class="cell-padding"><span class="${onlineClass}"><span class="w-1.5 h-1.5 rounded-full inline-block mr-1 ${user.isOnline ? 'bg-green-500' : 'bg-slate-400'}"></span>${onlineText}</span></td>
+            <td class="cell-padding"><span class="${statusClass}">${statusText}</span></td>
+            <td class="cell-padding speed-upload font-mono text-sm">${formatSpeed(user.upSpeed)}</td>
+            <td class="cell-padding speed-download font-mono text-sm">${formatSpeed(user.downSpeed)}</td>
+            <td class="cell-padding">
+              <input type="number" value="${user.upLimit || 0}" data-userid="${userId}" data-type="up"
+                class="w-20 border border-slate-200 rounded px-2 py-1 focus:outline-none focus:border-primary text-sm" min="0" step="0.1">
+            </td>
+            <td class="cell-padding">
+              <input type="number" value="${user.downLimit || 0}" data-userid="${userId}" data-type="down"
+                class="w-20 border border-slate-200 rounded px-2 py-1 focus:outline-none focus:border-primary text-sm" min="0" step="0.1">
+            </td>
+            <td class="cell-padding text-center">
+              ${user.isBlacklisted
+                ? `<button data-ip="${ip}" data-act="unban" class="px-3 py-1 rounded bg-success/10 text-success hover:bg-success/20 transition text-sm">
+                  <i class="fa fa-unlock mr-1"></i>解封IP
+                </button>`
+                : `<button data-ip="${ip}" data-act="ban" class="px-3 py-1 rounded bg-danger/10 text-danger hover:bg-danger/20 transition text-sm">
+                  <i class="fa fa-lock mr-1"></i>封禁IP
+                </button>`
+              }
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      bindEvents();
+
+      // 如果刷新前用户正在编辑输入框，恢复焦点到新DOM中对应的输入框
+      if (wasEditing && editingUserId) {
+        const restoredInput = tbody.querySelector(
+          `input[data-userid="${CSS.escape(editingUserId)}"][data-type="${editingType}"]`
+        );
+        if (restoredInput) {
+          restoredInput.focus();
+        }
+      }
+
+      rendering = false;
+    }
+
+    function bindEvents() {
+      // 封禁/解封
+      document.querySelectorAll('[data-act]').forEach(btn => {
+        btn.onclick = async () => {
+          const ip = btn.dataset.ip;
+          const act = btn.dataset.act;
+          const username = btn.closest('tr')?.querySelector('td')?.textContent?.trim() || '';
+
+          if (act === 'ban') {
+            if (!confirm(`确定要封禁 IP ${ip}（${username}）吗？\n封禁后该用户将立即断开连接。`)) return;
+          }
+
+          btn.disabled = true;
+          btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> 处理中...';
+
+          try {
+            const endpoint = act === 'ban' ? '/api/bandwidth/ban' : '/api/bandwidth/unban';
+            const res = await fetch(endpoint, {
+              method: 'POST',
+              credentials: 'same-origin',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ip: ip })
+            });
+            if (res.status === 403) { window.location.href = '/?redirect=' + encodeURIComponent('/bandwidth'); return; }
+            const data = await res.json();
+
+            if (data.success) {
+              showToast(act === 'ban' ? `已封禁 IP: ${ip}` : `已解封 IP: ${ip}`);
+              await refreshData(true);
+            } else {
+              showToast('操作失败: ' + (data.error || '未知错误'));
+              btn.disabled = false;
+              btn.innerHTML = act === 'ban'
+                ? '<i class="fa fa-lock mr-1"></i>封禁IP'
+                : '<i class="fa fa-unlock mr-1"></i>解封IP';
+            }
+          } catch (err) {
+            showToast('操作失败: ' + err.message);
+            btn.disabled = false;
+            btn.innerHTML = act === 'ban'
+              ? '<i class="fa fa-lock mr-1"></i>封禁IP'
+              : '<i class="fa fa-unlock mr-1"></i>解封IP';
+          }
+        };
+      });
+
+      // 限速输入
+      document.querySelectorAll('input[type="number"]').forEach(input => {
+        let changeTimer = null;
+        input.onchange = async () => {
+          const userId = input.dataset.userid;
+          const type = input.dataset.type;
+          let val = parseFloat(input.value);
+          if (isNaN(val) || val < 0) val = 0;
+          input.value = val;
+
+          try {
+            const body = type === 'up'
+              ? { userId, upLimit: val, downLimit: 0 }
+              : { userId, downLimit: val, upLimit: 0 };
+
+            // 获取当前另一方向的限速值
+            const tr = input.closest('tr');
+            const otherInput = tr.querySelector(`input[data-type="${type === 'up' ? 'down' : 'up'}"]`);
+            if (otherInput) {
+              const otherVal = parseFloat(otherInput.value) || 0;
+              if (type === 'up') body.downLimit = otherVal;
+              else body.upLimit = otherVal;
+            }
+
+            const res = await fetch('/api/bandwidth/limit', {
+              method: 'POST',
+              credentials: 'same-origin',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(body)
+            });
+            if (res.status === 403) { window.location.href = '/?redirect=' + encodeURIComponent('/bandwidth'); return; }
+            const data = await res.json();
+
+            if (data.success) {
+              showToast(`限速已更新: 上行${body.upLimit}MB/s, 下行${body.downLimit}MB/s`);
+            } else {
+              showToast('限速设置失败: ' + (data.error || '未知错误'));
+            }
+          } catch (err) {
+            showToast('限速设置失败: ' + err.message);
+          }
+        };
+
+        // Enter 键提交
+        input.onkeydown = (e) => {
+          if (e.key === 'Enter') {
+            input.blur();
+            input.onchange();
+          }
+        };
+      });
+    }
+
+    function showToast(msg) {
+      let toast = document.getElementById('toast');
+      if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'toast';
+        toast.className = 'fixed bottom-6 left-1/2 -translate-x-1/2 z-50 hidden';
+        toast.innerHTML = `
+          <div class="bg-slate-800 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2">
+            <i class="fa fa-check-circle text-green-400 text-lg"></i>
+            <span id="toast-msg" class="text-sm"></span>
+          </div>
+        `;
+        document.body.appendChild(toast);
+      }
+      document.getElementById('toast-msg').textContent = msg;
+      toast.classList.remove('hidden');
+      clearTimeout(toast._timer);
+      toast._timer = setTimeout(() => toast.classList.add('hidden'), 2500);
+    }
+
+    function escapeHtml(s) {
+      return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // 暂停/恢复轮询
+    function pausePolling() {
+      pollingPaused = true;
+      if (pollingTimer) {
+        clearInterval(pollingTimer);
+        pollingTimer = null;
+      }
+    }
+
+    function resumePolling() {
+      pollingPaused = false;
+      if (!pollingTimer) {
+        pollingTimer = setInterval(refreshData, 1000);
+      }
+    }
+
+    // 初始化
+    function init() {
+      refreshData();
+      pollingTimer = setInterval(refreshData, 1000);
+
+      // 全局监听：任何限速输入框获得焦点时暂停轮询，失去焦点时恢复
+      document.addEventListener('focusin', (e) => {
+        if (rendering) return;
+        if (e.target.tagName === 'INPUT' && e.target.type === 'number' &&
+            e.target.dataset.userid && e.target.dataset.type) {
+          pausePolling();
+        }
+      });
+
+      document.addEventListener('focusout', (e) => {
+        if (rendering) return;
+        if (e.target.tagName === 'INPUT' && e.target.type === 'number' &&
+            e.target.dataset.userid && e.target.dataset.type) {
+          resumePolling();
+        }
+      });
+    }
+
+    // 页面卸载清理
+    window.addEventListener('beforeunload', () => {
+      if (pollingTimer) clearInterval(pollingTimer);
+    });
+
+    init();
+  </script>
+</body>
+</html>

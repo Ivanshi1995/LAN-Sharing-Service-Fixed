@@ -1,0 +1,76 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWindowsForms>true</UseWindowsForms>
+    <NoWarn>$(NoWarn);MSB3277</NoWarn>
+    <ApplicationIcon>icon.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="bug\**" />
+    <Compile Remove="bugupload\**" />
+    <Compile Remove="tests\**" />
+    <Content Remove="tests\**" />
+    <None Remove="tests\**" />
+    <None Remove="bug\**" />
+    <None Remove="bugupload\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="QRCoder" Version="1.6.0" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2903.40" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.0" />
+  </ItemGroup>
+
+  <!-- 编译后精简输出：只保留 win-x64 的 SQLite native 库，删除 XML 文档 -->
+  <Target Name="TrimOutput" AfterTargets="CopyFilesToOutputDirectory">
+    <!-- 删除所有非 win-x64 的 runtimes 文件 -->
+    <ItemGroup>
+      <ExtraRuntimes Include="$(OutDir)runtimes\**\*" Exclude="$(OutDir)runtimes\win-x64\**\*" />
+    </ItemGroup>
+    <Delete Files="@(ExtraRuntimes)" />
+    <!-- 删除所有非 win-x64 的 runtimes 目录 -->
+    <ItemGroup>
+      <ExtraDirs Include="$(OutDir)runtimes\*" Exclude="$(OutDir)runtimes\win-x64" />
+    </ItemGroup>
+    <RemoveDir Directories="@(ExtraDirs)" />
+    <!-- 删除 XML 文档文件（运行时不需要） -->
+    <ItemGroup>
+      <XmlDocs Include="$(OutDir)*.xml" />
+    </ItemGroup>
+    <Delete Files="@(XmlDocs)" />
+  </Target>
+
+  <ItemGroup>
+    <None Update="lan-file-share-server.html">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="lan-file-share-client.html">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="lan-file-share-public.html">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="LAN Management\Bandwidth Management.html">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="settings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="icon.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="CDN\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <LinkBase>CDN\</LinkBase>
+    </None>
+    <None Update="用户导入模板.xlsx">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>

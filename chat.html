@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>聊天窗口</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        body {
+            background: transparent;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        /* 聊天容器：窗口本体不透明，可拖拽 */
+        .chat-box {
+            position: absolute;
+            width: 100%;
+            max-width: 480px;
+            height: 650px;
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            user-select: none;
+        }
+
+        /* 头部标题：拖拽区域 */
+        .chat-header {
+            padding: 16px 20px;
+            background: #2563eb;
+            color: white;
+            font-size: 17px;
+            font-weight: 500;
+            cursor: move;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* 关闭按钮 */
+        .close-btn {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: none;
+            background: rgba(255,255,255,0.2);
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+
+        .close-btn:hover {
+            background: rgba(255,255,255,0.4);
+        }
+
+        /* 消息内容区 */
+        .chat-content {
+            flex: 1;
+            padding: 16px;
+            overflow-y: auto;
+            background: #fafafa;
+            user-select: text;
+        }
+
+        /* 消息通用样式 */
+        .message {
+            margin-bottom: 18px;
+            max-width: 75%;
+        }
+
+        .msg-left {
+            margin-right: auto;
+        }
+
+        .msg-right {
+            margin-left: auto;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+
+        /* IP昵称 */
+        .ip-name {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 4px;
+        }
+
+        .msg-right .ip-name {
+            color: #64748b;
+        }
+
+        .msg-bubble {
+            padding: 10px 14px;
+            border-radius: 12px;
+            word-break: break-all;
+        }
+
+        .msg-left .msg-bubble {
+            background: #e9ecef;
+            border-bottom-left-radius: 4px;
+        }
+
+        .msg-right .msg-bubble {
+            background: #2563eb;
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        /* 图片、附件样式 */
+        .msg-image {
+            width: 180px;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+
+        .msg-file {
+            background: #eef2ff;
+            color: #2563eb;
+            padding: 10px 12px;
+            border-radius: 10px;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            text-decoration: none;
+        }
+
+        /* 输入区域 */
+        .chat-input-area {
+            padding: 14px;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .tool-bar {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+
+        .tool-btn {
+            cursor: pointer;
+            background: transparent;
+            border: none;
+            width: 24px;
+            height: 24px;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            vertical-align: middle;
+        }
+
+        .tool-btn svg {
+            width: 24px;
+            height: 24px;
+            fill: #4b5563;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .input-row {
+            display: flex;
+            gap: 10px;
+        }
+
+        #messageInput {
+            flex: 1;
+            border: 1px solid #ddd;
+            border-radius: 24px;
+            padding: 10px 16px;
+            outline: none;
+            font-size: 15px;
+        }
+
+        #sendBtn {
+            background-color: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 24px;
+            padding: 0 20px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-box" id="dragBox">
+        <div class="chat-header" id="dragHandle">
+            <span id="headerTitle">与 192.168.1.100 在线聊天</span>
+            <button class="close-btn" id="closeBtn">×</button>
+        </div>
+        <div class="chat-content" id="chatContent"></div>
+
+        <div class="chat-input-area">
+            <div class="tool-bar">
+                <!-- 上传图片 -->
+                <label for="imageUpload" class="tool-btn" title="发送图片">
+                    <svg t="1782833480066" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="13911" width="256" height="256">
+                        <path d="M287.8 288m-96 0a96 96 0 1 0 192 0 96 96 0 1 0-192 0Z" fill="" p-id="13912"></path>
+                        <path d="M957.1 161.9c-0.5-2-1-4.1-1.6-6.1-0.6-2-1.2-4-1.9-5.9-0.3-1-0.7-2-1-2.9-1.1-2.9-2.2-5.8-3.5-8.6-1.7-3.7-3.6-7.4-5.6-10.9-1-1.8-2.1-3.5-3.2-5.2-0.6-0.9-1.1-1.7-1.7-2.5-1.7-2.5-3.5-5-5.4-7.4-1.3-1.6-2.6-3.2-3.9-4.7-2.7-3.1-5.5-6-8.4-8.8-22.8-21.7-53.5-35.1-87.3-35.1H190.9c-27.2 0-52.5 8.7-73.2 23.5-0.8 0.6-1.6 1.2-2.5 1.8-2.4 1.8-4.8 3.7-7.1 5.7-0.8 0.7-1.5 1.3-2.3 2-1.1 1-2.2 2.1-3.3 3.1l-2.2 2.2c-2.5 2.5-4.9 5.2-7.1 7.9-0.6 0.8-1.3 1.6-1.9 2.4-1.5 1.9-3 3.9-4.4 5.9-9.6 13.7-16.5 29.3-20 46.2-0.1 0.4-0.2 0.8-0.2 1.1-0.4 2.1-0.8 4.2-1.1 6.3-1 6.6-1.6 13.3-1.6 20.1v640c0 9.2 1 18.3 2.9 27 5 23.8 16.6 45.2 33 62.1l2.7 2.7c1.8 1.8 3.7 3.5 5.6 5.2 3.8 3.3 7.9 6.4 12.1 9.3 0.8 0.6 1.7 1.1 2.5 1.7 1.7 1.1 3.5 2.2 5.2 3.2l2.7 1.5c1.8 1 3.6 1.9 5.5 2.8 4.6 2.2 9.4 4.2 14.3 5.9 2 0.7 3.9 1.3 5.9 1.9 6 1.7 12.2 3 18.5 3.8 5.6 0.8 11.3 1.2 17.1 1.2h640c3.6 0 7.1-0.2 10.6-0.4 7.8-0.5 15.4-1.8 22.7-3.7 3-0.8 6-1.7 9-2.7 4.9-1.7 9.7-3.6 14.3-5.9 1.8-0.9 3.7-1.8 5.5-2.8l2.7-1.5c8.8-5.1 17-11.2 24.4-18.2 0.6-0.5 1.1-1.1 1.6-1.6 0.2-0.2 0.4-0.3 0.5-0.5 2.2-2.2 4.2-4.4 6.2-6.7 0.1-0.1 0.2-0.3 0.4-0.4 1.2-1.4 2.4-2.8 3.5-4.2 1.3-1.6 2.5-3.2 3.7-4.9 0.4-0.6 0.8-1.2 1.2-1.7 0.3-0.4 0.6-0.9 0.9-1.3 0.5-0.7 0.9-1.3 1.3-2s0.8-1.3 1.2-2c0.1-0.2 0.3-0.4 0.4-0.6l2.1-3.6c0.8-1.5 1.6-2.9 2.4-4.4 1.3-2.5 2.5-5.1 3.6-7.7 0.5-1.2 1-2.3 1.4-3.5 0.9-2.2 1.7-4.5 2.5-6.8 0.5-1.6 1.1-3.3 1.5-5 0.6-2 1.1-4.1 1.6-6.1 0.2-0.9 0.4-1.8 0.6-2.8 0.4-1.9 0.8-3.8 1.1-5.8 0-0.2 0.1-0.4 0.1-0.7 0.2-1.6 0.5-3.1 0.6-4.7 0.2-1.6 0.3-3.2 0.5-4.8 0.2-3.2 0.4-6.4 0.4-9.7V190.4c-0.1-9.8-1.3-19.3-3.4-28.5zM752.2 467.2c-25.3-25.3-66.6-25.3-91.8 0l-242 242L304.1 595c-25.3-25.3-66.6-25.3-91.8 0L128 679.3V192c0-17 6.7-33 18.9-45.1C159 134.7 175 128 192 128h640c17 0 33 6.7 45.1 18.9C889.3 159 896 175 896 192v419L752.2 467.2z" fill="" p-id="13913"></path>
+                    </svg>
+                </label>
+                <input type="file" id="imageUpload" accept="image/*">
+
+                <!-- 上传附件 -->
+                <label for="fileUpload" class="tool-btn" title="发送附件">
+                    <svg t="1782833533304" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="14904" width="256" height="256">
+                        <path d="M632 364l-240 240s-40 2-32-36L736 198s88-96 154-22 48.016 90.016-18 154c-56.768 55.008-506 503.28-543.744 514.832-49.44 15.12-119.28 16.656-178.256-56.832-90-108-28-188 0-216l28-28 316-314s42-94-66-64c-80 72-398 400-398 400S-48 666 72 836c131.568 150.368 267.808 111.104 298.576 96.352C410.672 930.672 998.56 328 998.56 328s73.44-96-24.56-208c-104-112-218-70.816-236-50.096L250 544s-38 52 16 116 100 84 146 46S710 420 710 420s24.592-93.296-78-56z" fill="#989899" p-id="14905"></path>
+                    </svg>
+                </label>
+                <input type="file" id="fileUpload">
+            </div>
+            <div class="input-row">
+                <input type="text" id="messageInput" placeholder="输入消息...">
+                <button id="sendBtn">发送</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const chatContent = document.getElementById("chatContent");
+        const messageInput = document.getElementById("messageInput");
+        const sendBtn = document.getElementById("sendBtn");
+        const imageUpload = document.getElementById("imageUpload");
+        const fileUpload = document.getElementById("fileUpload");
+        const dragBox = document.getElementById("dragBox");
+        const dragHandle = document.getElementById("dragHandle");
+        const closeBtn = document.getElementById("closeBtn");
+        const headerTitle = document.getElementById("headerTitle");
+
+        let selfIp = "127.0.0.1";
+        let targetIp = "192.168.1.100"; //对方IP，用来更新标题
+
+        // 更新标题为与对方IP聊天
+        function setTargetIP(ip) {
+            targetIp = ip;
+            headerTitle.innerText = `与 ${ip} 在线聊天`;
+        }
+
+        function setSelfIP(ip) {
+            selfIp = ip;
+        }
+
+        // 追加文字消息
+        function addTextMsg(text, isSelf, ip = isSelf ? selfIp : targetIp) {
+            const div = document.createElement("div");
+            div.className = `message ${isSelf ? "msg-right" : "msg-left"}`;
+            div.innerHTML = `
+                <div class="ip-name">${ip}</div>
+                <div class="msg-bubble">${text}</div>
+            `;
+            chatContent.appendChild(div);
+            scrollBottom();
+        }
+
+        // 追加图片消息
+        function addImageMsg(src, isSelf = true, ip = isSelf ? selfIp : targetIp) {
+            const div = document.createElement("div");
+            div.className = "message " + (isSelf ? "msg-right" : "msg-left");
+            div.innerHTML = `
+                <div class="ip-name">${ip}</div>
+                <img src="${src}" class="msg-image">
+            `;
+            chatContent.appendChild(div);
+            scrollBottom();
+        }
+
+        // 追加文件消息
+        function addFileMsg(fileName, fileUrl, isSelf = true, ip = isSelf ? selfIp : targetIp) {
+            const div = document.createElement("div");
+            div.className = "message " + (isSelf ? "msg-right" : "msg-left");
+            div.innerHTML = `
+                <div class="ip-name">${ip}</div>
+                <a class="msg-file" href="${fileUrl}" download>
+                    📄 ${fileName}
+                </a>
+            `;
+            chatContent.appendChild(div);
+            scrollBottom();
+        }
+
+        // 滚动到底部
+        function scrollBottom() {
+            chatContent.scrollTop = chatContent.scrollHeight;
+        }
+
+        // 发送文字
+        sendBtn.addEventListener("click", () => {
+            const text = messageInput.value.trim();
+            if (!text) return;
+            addTextMsg(text, true);
+            messageInput.value = "";
+        });
+
+        messageInput.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") sendBtn.click();
+        });
+
+        // 上传图片预览
+        imageUpload.addEventListener("change", (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = ev => {
+                addImageMsg(ev.target.result);
+            };
+            reader.readAsDataURL(file);
+            imageUpload.value = "";
+        });
+
+        // 上传附件
+        fileUpload.addEventListener("change", (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = ev => {
+                addFileMsg(file.name, ev.target.result);
+            };
+            reader.readAsDataURL(file);
+            fileUpload.value = "";
+        });
+
+        // 拖拽逻辑
+        let isDragging = false;
+        let offsetX, offsetY;
+
+        dragHandle.addEventListener("mousedown", (e) => {
+            isDragging = true;
+            offsetX = e.clientX - dragBox.offsetLeft;
+            offsetY = e.clientY - dragBox.offsetTop;
+            dragHandle.style.cursor = "grabbing";
+        });
+
+        document.addEventListener("mousemove", (e) => {
+            if (!isDragging) return;
+            dragBox.style.left = (e.clientX - offsetX) + "px";
+            dragBox.style.top = (e.clientY - offsetY) + "px";
+        });
+
+        document.addEventListener("mouseup", () => {
+            isDragging = false;
+            dragHandle.style.cursor = "move";
+        });
+
+        // 关闭窗口
+        closeBtn.addEventListener("click", () => {
+            dragBox.style.display = "none";
+        });
+
+        //示例调用：setTargetIP("192.168.1.12"); 即可修改标题对方IP
+        //addTextMsg("你好",false);
+    </script>
+</body>
+</html>

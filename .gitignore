@@ -1,0 +1,17 @@
+bin/
+obj/
+.vs/
+*.user
+*.exe
+*.dll
+*.pdb
+*.cache
+*.log
+*.dat
+bugupload/
+bug/bin/
+bug/obj/
+LAN Sharing Service/bin/
+LAN Sharing Service/obj/
+LAN Sharing Service/
+*.WebView2/

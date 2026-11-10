@@ -1,0 +1,42 @@
+name: 编译与回归验证
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - name: 获取源码
+        uses: actions/checkout@v4
+      - name: 准备 .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: 准备 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: 还原项目依赖
+        run: dotnet restore tests/Regression/Regression.csproj
+      - name: 编译发布配置
+        run: dotnet build LanFileShare.csproj -c Release --no-restore
+      - name: 验证后端和接口
+        run: dotnet run --project tests/Regression/Regression.csproj -c Release --no-restore -- "${{ runner.temp }}/verification.json"
+      - name: 验证文件校验脚本
+        run: node --test tests/fingerprint.test.js
+      - name: 保存验证记录
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verification-results
+          path: ${{ runner.temp }}/verification.json
+          if-no-files-found: warn

@@ -1,0 +1,7 @@
+{
+  "UploadDirectory": "./SharedFiles",
+  "Port": 8080,
+  "AutoStart": true,
+  "MinimizeToTray": false,
+  "SelectedInterface": ""
+}

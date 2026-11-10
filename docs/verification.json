@@ -1,0 +1,142 @@
+{
+  "passed": 34,
+  "failed": 0,
+  "results": [
+    {
+      "name": "\u9759\u6001\u8BBF\u95EE\u62D2\u7EDD /users.json",
+      "passed": true
+    },
+    {
+      "name": "\u9759\u6001\u8BBF\u95EE\u62D2\u7EDD /settings.json",
+      "passed": true
+    },
+    {
+      "name": "\u9759\u6001\u8BBF\u95EE\u62D2\u7EDD /SharedFiles/private.txt",
+      "passed": true
+    },
+    {
+      "name": "\u9759\u6001\u8BBF\u95EE\u62D2\u7EDD /lan-file-share-server.html",
+      "passed": true
+    },
+    {
+      "name": "\u79BB\u7EBF\u8D44\u6E90\u4ECD\u53EF\u8BFB\u53D6",
+      "passed": true
+    },
+    {
+      "name": "\u767B\u5F55\u9875\u9762\u4ECD\u53EF\u8BFB\u53D6",
+      "passed": true
+    },
+    {
+      "name": "\u79C1\u4EBA\u6587\u4EF6\u4ECD\u9700\u767B\u5F55",
+      "passed": true
+    },
+    {
+      "name": "\u4E0D\u540C\u76EE\u6807\u76EE\u5F55\u9694\u79BB\u7EED\u4F20\u4F1A\u8BDD",
+      "passed": true
+    },
+    {
+      "name": "\u76F8\u540C\u6587\u4EF6\u53EF\u4EE5\u65AD\u70B9\u7EED\u4F20",
+      "passed": true
+    },
+    {
+      "name": "\u540C\u540D\u540C\u5927\u5C0F\u4F46\u5185\u5BB9\u4E0D\u540C\u4E0D\u4F1A\u5171\u7528\u4F1A\u8BDD",
+      "passed": true
+    },
+    {
+      "name": "\u65E7\u5BA2\u6237\u7AEF\u65E0\u6821\u9A8C\u503C\u65F6\u4E0D\u81EA\u52A8\u7EED\u4F20",
+      "passed": true
+    },
+    {
+      "name": "\u5B8C\u6574\u5185\u5BB9\u6821\u9A8C\u963B\u6B62\u635F\u574F\u6587\u4EF6\u53D1\u5E03",
+      "passed": true
+    },
+    {
+      "name": "\u6539\u4E3A\u53EA\u8BFB\u540E\u62D2\u7EDD\u540E\u7EED\u5199\u5165\u5E76\u6E05\u7406\u4F1A\u8BDD",
+      "passed": true
+    },
+    {
+      "name": "\u6539\u4E3A\u53EA\u8BFB\u540E\u62D2\u7EDD\u5B8C\u6210\u4E0A\u4F20",
+      "passed": true
+    },
+    {
+      "name": "\u76EE\u5F55\u6388\u6743\u6539\u53D8\u540E\u4E0D\u80FD\u5199\u5165\u65E7\u76EE\u5F55",
+      "passed": true
+    },
+    {
+      "name": "\u5171\u4EAB\u64A4\u56DE\u540E\u62D2\u7EDD\u5B8C\u6210\u4E0A\u4F20",
+      "passed": true
+    },
+    {
+      "name": "\u516C\u5171\u76EE\u5F55\u64A4\u56DE\u540E\u62D2\u7EDD\u5B8C\u6210\u4E0A\u4F20",
+      "passed": true
+    },
+    {
+      "name": "\u8D85\u5927\u5206\u5757\u56DE\u6EDA\u4E14\u4FDD\u7559\u5DF2\u786E\u8BA4\u5185\u5BB9",
+      "passed": true
+    },
+    {
+      "name": "\u8D85\u8FC7\u58F0\u660E\u6587\u4EF6\u5927\u5C0F\u7684\u5206\u5757\u88AB\u62D2\u7EDD",
+      "passed": true
+    },
+    {
+      "name": "\u8D1F\u504F\u79FB\u548C\u91CD\u53D1\u65E7\u504F\u79FB\u4E0D\u4F1A\u622A\u65AD\u6587\u4EF6",
+      "passed": true
+    },
+    {
+      "name": "\u5206\u5757\u8BFB\u53D6\u4E2D\u65AD\u540E\u4FDD\u7559\u5DF2\u786E\u8BA4\u5185\u5BB9",
+      "passed": true
+    },
+    {
+      "name": "\u5E76\u53D1\u521D\u59CB\u5316\u53EA\u5EFA\u7ACB\u4E00\u4E2A\u7EED\u4F20\u4F1A\u8BDD",
+      "passed": true
+    },
+    {
+      "name": "\u672A\u786E\u8BA4\u8986\u76D6\u65F6\u4FDD\u7559\u65E7\u6587\u4EF6",
+      "passed": true
+    },
+    {
+      "name": "\u76EE\u6807\u6587\u4EF6\u88AB\u5360\u7528\u65F6\u4FDD\u7559\u65E7\u6587\u4EF6\u5E76\u53EF\u91CD\u8BD5",
+      "passed": true
+    },
+    {
+      "name": "\u6BCF\u7528\u6237\u5F85\u4E0A\u4F20\u4EFB\u52A1\u6570\u53D7\u9650",
+      "passed": true
+    },
+    {
+      "name": "\u6BCF\u7528\u6237\u5F85\u4E0A\u4F20\u5BB9\u91CF\u53D7\u9650",
+      "passed": true
+    },
+    {
+      "name": "\u8FC7\u671F\u4E0A\u4F20\u4F1A\u8BDD\u548C\u4E34\u65F6\u6587\u4EF6\u5F97\u5230\u6E05\u7406",
+      "passed": true
+    },
+    {
+      "name": "\u65E0\u6548\u4E0A\u4F20\u6807\u8BC6\u4E0D\u80FD\u8DE8\u76EE\u5F55\u8BFB\u53D6\u4F1A\u8BDD",
+      "passed": true
+    },
+    {
+      "name": "\u771F\u5B9E\u63A5\u53E3\u9A8C\u8BC1\u4E0A\u4F20\u5E76\u4E0B\u8F7D",
+      "passed": true
+    },
+    {
+      "name": "\u771F\u5B9E\u63A5\u53E3\u62D2\u7EDD\u4E2D\u9014\u64A4\u56DE\u7684\u5199\u6743\u9650",
+      "passed": true
+    },
+    {
+      "name": "\u641C\u7D22\u4E0E\u6587\u4EF6\u53D8\u5316\u5E76\u53D1\u8FD0\u884C",
+      "passed": true
+    },
+    {
+      "name": "\u76EE\u5F55\u91CD\u547D\u540D\u540E\u5B50\u6587\u4EF6\u4ECD\u53EF\u641C\u7D22",
+      "passed": true
+    },
+    {
+      "name": "\u79FB\u5165\u5E26\u5B50\u6587\u4EF6\u7684\u76EE\u5F55\u540E\u7D22\u5F15\u5B8C\u6574",
+      "passed": true
+    },
+    {
+      "name": "\u91CD\u590D\u6784\u5EFA\u671F\u95F4\u7684\u6587\u4EF6\u53D8\u5316\u4E0D\u4F1A\u4E22\u5931",
+      "passed": true
+    }
+  ]
+}

@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>提交 Bug · LanFile Share</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        html, body {
+            overflow: hidden;
+            height: 100%;
+        }
+        body {
+            background: #f4f7fc;
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+        .card {
+            width: 100%;
+            background: #ffffff;
+            border-radius: 0;
+            padding: 10px 12px;
+            box-sizing: border-box;
+        }
+        h1 {
+            font-size: 18px;
+            font-weight: 600;
+            color: #0b1e33;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-bottom: 1px solid #e9edf4;
+            padding-bottom: 8px;
+            margin-bottom: 10px;
+        }
+        h1 small {
+            font-size: 11px;
+            font-weight: 400;
+            color: #4a6479;
+            margin-left: auto;
+            background: #edf2f9;
+            padding: 2px 10px;
+            border-radius: 30px;
+        }
+        .field-group {
+            margin-bottom: 8px;
+        }
+        label {
+            display: block;
+            font-weight: 500;
+            font-size: 12px;
+            color: #1f3a57;
+            margin-bottom: 3px;
+        }
+        label .required {
+            color: #c53e3e;
+            margin-left: 2px;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 6px 10px;
+            font-size: 13px;
+            border: 1px solid #d7dfe9;
+            border-radius: 8px;
+            background: #fafcff;
+            transition: 0.15s;
+            font-family: inherit;
+            color: #0b1e33;
+            box-sizing: border-box;
+        }
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #2a6b9e;
+            box-shadow: 0 0 0 4px rgba(42, 107, 158, 0.12);
+            background: #ffffff;
+        }
+        textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        /* ========== 上传区域 ========== */
+        .upload-zone {
+            border: 1.5px dashed #b8cbe0;
+            border-radius: 10px;
+            text-align: center;
+            background: #f7f9fc;
+            transition: 0.2s;
+            cursor: pointer;
+            position: relative;
+            height: 80px;
+            overflow: hidden;
+        }
+        .upload-zone:hover, .upload-zone.drag-over {
+            border-color: #2a6b9e;
+            background: #edf4fd;
+        }
+        .upload-zone input[type="file"] {
+            display: none;
+        }
+        .upload-zone .upload-placeholder {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+        }
+        .upload-zone.has-image .upload-placeholder {
+            display: none;
+        }
+        .upload-zone .upload-icon {
+            font-size: 22px;
+            color: #6a8db5;
+        }
+        .upload-zone .upload-text {
+            font-size: 11px;
+            color: #4a6479;
+        }
+        .upload-zone .upload-hint {
+            font-size: 10px;
+            color: #7e9bb8;
+        }
+
+        /* ========== 图片预览（在上传区域内） ========== */
+        .upload-zone .preview-grid {
+            display: none;
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+        }
+        .upload-zone.has-image .preview-grid {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .upload-zone .preview-item {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .upload-zone .preview-item img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            display: block;
+        }
+        .upload-zone .preview-item .remove-btn {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: rgba(200, 30, 30, 0.85);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+            transition: 0.15s;
+            z-index: 2;
+        }
+        .upload-zone .preview-item .remove-btn:hover {
+            background: rgba(180, 20, 20, 1);
+            transform: scale(1.1);
+        }
+
+        .row-2col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        /* ========== 提交按钮 ========== */
+        .submit-area {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        .btn-submit {
+            background: #1a3d5e;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 14px;
+            font-weight: 600;
+            border-radius: 40px;
+            cursor: pointer;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            flex: 1;
+        }
+        .btn-submit:hover:not(:disabled) {
+            background: #0f2c44;
+        }
+        .btn-submit:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .rate-limit-info {
+            font-size: 11px;
+            color: #6a8db5;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .rate-limit-info .countdown {
+            font-weight: 600;
+            color: #c53e3e;
+        }
+
+        #statusMessage {
+            flex: 1;
+            padding: 6px 10px;
+            border-radius: 8px;
+            background: #f0f4fa;
+            color: #1f3a57;
+            font-size: 12px;
+            border-left: 4px solid #7e9bb8;
+            display: none;
+            word-break: break-word;
+        }
+        #statusMessage.error {
+            background: #fee9e9;
+            border-left-color: #bc3b3b;
+            color: #721c1c;
+            display: block;
+        }
+        #statusMessage.success {
+            background: #e4f2e6;
+            border-left-color: #1e7a44;
+            color: #165a31;
+            display: block;
+        }
+        #statusMessage.loading {
+            background: #e3ebf5;
+            border-left-color: #3f6a94;
+            display: block;
+        }
+        .footnote {
+            margin-top: 10px;
+            font-size: 11px;
+            color: #5a738b;
+            border-top: 1px solid #e2e9f2;
+            padding-top: 8px;
+            text-align: center;
+        }
+        .footnote a {
+            color: #1d4e7a;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .footnote a:hover {
+            text-decoration: underline;
+        }
+        .badge {
+            background: #e2eaf5;
+            padding: 0 8px;
+            border-radius: 40px;
+            font-size: 10px;
+            color: #1a3a57;
+        }
+        .token-status {
+            font-size: 11px;
+            background: #eef3f9;
+            padding: 6px 10px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            color: #1e3d5e;
+            border: 1px solid #d5e0ec;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .token-status .dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 8px;
+            margin-right: 4px;
+        }
+        .dot.green { background: #1d9c4a; }
+        .dot.yellow { background: #e6a017; }
+        .dot.red { background: #c53e3e; }
+        @media (max-width: 640px) {
+            .card { padding: 8px 10px; }
+            .row-2col { grid-template-columns: 1fr; gap: 6px; }
+            .submit-area { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+<div class="card">
+    <h1>
+        提交 Bug 报告
+        <small>分类 ID · 15</small>
+    </h1>
+
+    <div class="token-status" id="tokenStatus">
+        <span class="dot green" id="tokenDot"></span>
+        <span id="tokenStatusText">系统就绪，请填写 Bug 信息</span>
+    </div>
+
+    <form id="bugForm" enctype="multipart/form-data" method="post">
+
+        <div class="field-group">
+            <label for="bugTitle">Bug 标题 <span class="required">*</span></label>
+            <input type="text" id="bugTitle" name="title" placeholder="例如：文章保存时出现空白页" required>
+        </div>
+
+        <div class="row-2col">
+            <div class="field-group">
+                <label for="bugVersion">软件版本 <span class="required">*</span></label>
+                <select id="bugVersion" name="version" required>
+                    <option value="">加载版本列表中...</option>
+                </select>
+            </div>
+            <div class="field-group">
+                <label for="bugSeverity">严重程度</label>
+                <select id="bugSeverity" name="severity">
+                    <option value="轻微">轻微</option>
+                    <option value="一般" selected>一般</option>
+                    <option value="严重">严重</option>
+                    <option value="崩溃">崩溃</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="field-group">
+            <label for="bugContent">详细描述 <span class="required">*</span></label>
+            <textarea id="bugContent" name="content" placeholder="请描述复现步骤、实际结果与预期结果…" required></textarea>
+        </div>
+
+        <div class="field-group">
+            <label>错误截图 (支持 png/jpg/gif/webp，≤ 10MB)</label>
+            <div class="upload-zone" id="uploadZone">
+                <input type="file" id="bugScreenshots" accept="image/png, image/jpeg, image/gif, image/webp">
+                <div class="upload-placeholder">
+                    <div class="upload-icon">&#128247;</div>
+                    <div class="upload-text">点击选择图片 或 拖拽图片到此处</div>
+                    <div class="upload-hint" id="uploadHint">未选择截图</div>
+                </div>
+                <div class="preview-grid" id="previewGrid"></div>
+            </div>
+        </div>
+
+        <div class="submit-area">
+            <button type="submit" class="btn-submit" id="submitBtn" disabled>
+                <span>提交到后台</span>
+            </button>
+            <div class="rate-limit-info" id="rateLimitInfo" style="display:none;">
+                冷却中: <span class="countdown" id="countdownText">60</span> 秒
+            </div>
+            <div id="statusMessage"></div>
+        </div>
+    </form>
+
+    <div class="footnote">
+        <span class="badge">云端存储</span>
+        报告提交至远程服务器 · 每分钟最多提交 1 次
+    </div>
+</div>
+
+<script>
+    (function() {
+        const API_URL = '/api';
+        const RATE_LIMIT_URL = '/api/ratelimit';
+        const MAX_IMAGES = 1;
+        const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+
+        const form = document.getElementById('bugForm');
+        const statusDiv = document.getElementById('statusMessage');
+        const submitBtn = document.getElementById('submitBtn');
+        const tokenStatusText = document.getElementById('tokenStatusText');
+        const tokenDot = document.getElementById('tokenDot');
+        const uploadZone = document.getElementById('uploadZone');
+        const fileInput = document.getElementById('bugScreenshots');
+        const previewGrid = document.getElementById('previewGrid');
+        const uploadHint = document.getElementById('uploadHint');
+        const rateLimitInfo = document.getElementById('rateLimitInfo');
+        const countdownText = document.getElementById('countdownText');
+
+        // 存储 File 对象列表
+        let selectedFiles = [];
+        let countdownTimer = null;
+        let cooldownEnd = 0;
+
+        const versionSelect = document.getElementById('bugVersion');
+
+        // 加载版本列表（通过本地后端代理，避免跨域）
+        function loadVersions() {
+            fetch('/api/versions', { cache: 'no-cache' })
+            .then(r => r.text())
+            .then(text => {
+                var versions = text.split('\n')
+                    .map(function(v) { return v.trim(); })
+                    .filter(function(v) { return v.length > 0 && v.startsWith('v'); });
+
+                versionSelect.innerHTML = '';
+                if (versions.length === 0) {
+                    versionSelect.innerHTML = '<option value="">无可用版本</option>';
+                    return;
+                }
+
+                // 从旧到新排列（文件已是升序），默认选最新
+                versions.forEach(function(v) {
+                    var opt = document.createElement('option');
+                    opt.value = v;
+                    opt.textContent = v;
+                    versionSelect.appendChild(opt);
+                });
+                versionSelect.value = versions[versions.length - 1];
+                setTokenStatus('版本列表已加载 · ' + versions.length + ' 个版本', 'green');
+            })
+            .catch(function() {
+                versionSelect.innerHTML = '<option value="">加载失败，请手动输入</option>';
+                setTokenStatus('版本列表加载失败', 'red');
+            });
+        }
+
+        loadVersions();
+
+        // 初始化：检查冷却状态
+        checkRateLimit();
+
+        submitBtn.disabled = false;
+
+        // ========== 状态显示辅助 ==========
+        function setStatus(msg, type) {
+            statusDiv.innerHTML = msg;
+            statusDiv.className = '';
+            if (type === 'error') {
+                statusDiv.classList.add('error');
+            } else if (type === 'success') {
+                statusDiv.classList.add('success');
+            } else if (type === 'loading') {
+                statusDiv.classList.add('loading');
+            } else {
+                statusDiv.style.display = 'block';
+                statusDiv.style.background = '#f0f4fa';
+                statusDiv.style.borderLeftColor = '#7e9bb8';
+                statusDiv.style.color = '#1f3a57';
+            }
+            statusDiv.style.display = 'block';
+        }
+
+        function setTokenStatus(text, color) {
+            tokenStatusText.textContent = text;
+            tokenDot.className = 'dot ' + color;
+        }
+
+        // ========== 频率限制计时器 ==========
+        function checkRateLimit() {
+            fetch(RATE_LIMIT_URL, { credentials: 'same-origin', cache: 'no-cache' })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.can_submit) {
+                        enableSubmit();
+                    } else {
+                        startCountdown(data.remaining_seconds);
+                    }
+                })
+                .catch(() => {
+                    enableSubmit(); // 检查失败时允许提交
+                });
+        }
+
+        function startCountdown(seconds) {
+            cooldownEnd = Date.now() + seconds * 1000;
+            disableSubmit();
+            rateLimitInfo.style.display = 'flex';
+            updateCountdown();
+
+            if (countdownTimer) clearInterval(countdownTimer);
+            countdownTimer = setInterval(updateCountdown, 1000);
+        }
+
+        function updateCountdown() {
+            var remaining = Math.max(0, Math.ceil((cooldownEnd - Date.now()) / 1000));
+            countdownText.textContent = remaining;
+
+            if (remaining <= 0) {
+                clearInterval(countdownTimer);
+                countdownTimer = null;
+                rateLimitInfo.style.display = 'none';
+                enableSubmit();
+            }
+        }
+
+        function disableSubmit() {
+            submitBtn.style.display = 'none';
+        }
+
+        function enableSubmit() {
+            submitBtn.disabled = false;
+            submitBtn.style.display = '';
+            rateLimitInfo.style.display = 'none';
+        }
+
+        // ========== 单图上传处理 ==========
+        function handleFiles(files) {
+            var file = files[0];
+            if (!file) return;
+
+            var ext = '.' + file.name.split('.').pop().toLowerCase();
+            var allowed = {'.png':1, '.jpg':1, '.jpeg':1, '.gif':1, '.webp':1};
+            if (!allowed[ext]) {
+                setStatus('不支持的文件类型（仅限 PNG/JPG/GIF/WebP）', 'error');
+                return;
+            }
+            if (file.size > MAX_SIZE) {
+                setStatus('文件过大（最大 10MB）', 'error');
+                return;
+            }
+            if (file.size === 0) {
+                setStatus('文件为空', 'error');
+                return;
+            }
+
+            selectedFiles = [file];
+            renderPreview();
+            fileInput.value = '';
+        }
+
+        function removeFile() {
+            selectedFiles = [];
+            renderPreview();
+        }
+
+        function renderPreview() {
+            previewGrid.innerHTML = '';
+
+            if (selectedFiles.length === 0) {
+                uploadZone.classList.remove('has-image');
+                uploadHint.textContent = '未选择截图';
+                return;
+            }
+
+            uploadZone.classList.add('has-image');
+            uploadHint.textContent = '已选择 1 张截图';
+            var file = selectedFiles[0];
+
+            var div = document.createElement('div');
+            div.className = 'preview-item';
+
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                var img = document.createElement('img');
+                img.src = e.target.result;
+                img.alt = file.name;
+                div.appendChild(img);
+            };
+            reader.readAsDataURL(file);
+
+            var removeBtn = document.createElement('button');
+            removeBtn.className = 'remove-btn';
+            removeBtn.innerHTML = '&times;';
+            removeBtn.title = '移除';
+            removeBtn.onclick = function(e) {
+                e.stopPropagation();
+                e.preventDefault();
+                removeFile();
+            };
+            div.appendChild(removeBtn);
+
+            previewGrid.appendChild(div);
+        }
+
+        // 点击上传区域
+        uploadZone.addEventListener('click', function(e) {
+            if (e.target.tagName !== 'BUTTON') {
+                fileInput.click();
+            }
+        });
+
+        fileInput.addEventListener('change', function() {
+            if (this.files.length > 0) {
+                handleFiles(this.files);
+            }
+        });
+
+        // 拖拽上传
+        uploadZone.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            this.classList.add('drag-over');
+        });
+
+        uploadZone.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            this.classList.remove('drag-over');
+        });
+
+        uploadZone.addEventListener('drop', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            this.classList.remove('drag-over');
+            if (e.dataTransfer.files.length > 0) {
+                handleFiles(e.dataTransfer.files);
+            }
+        });
+
+        // 粘贴图片
+        document.addEventListener('paste', function(e) {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            var items = e.clipboardData.items;
+            for (var i = 0; i < items.length; i++) {
+                if (items[i].type.indexOf('image/') === 0) {
+                    handleFiles([items[i].getAsFile()]);
+                    return;
+                }
+            }
+        });
+
+        // ========== 提交 Bug 逻辑 ==========
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            if (submitBtn.disabled) return;
+
+            var title = document.getElementById('bugTitle').value.trim();
+            var version = document.getElementById('bugVersion').value.trim();
+            var severity = document.getElementById('bugSeverity').value;
+            var content = document.getElementById('bugContent').value.trim();
+
+            if (!title) { setStatus('请填写 Bug 标题', 'error'); return; }
+            if (!version) { setStatus('请选择软件版本', 'error'); return; }
+            if (!content) { setStatus('请填写详细描述', 'error'); return; }
+
+            try {
+                setStatus('正在提交 Bug 报告...', 'loading');
+                submitBtn.disabled = true;
+
+                var formData = new FormData();
+                formData.append('title', title);
+                formData.append('version', version);
+                formData.append('severity', severity);
+                formData.append('content', content);
+
+                // 添加截图
+                selectedFiles.forEach(function(file) {
+                    formData.append('screenshots', file);
+                });
+
+                var resp = await fetch(API_URL, {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                var result = await resp.json();
+
+                if (result.success) {
+                    setStatus('Bug 报告已提交！记录 ID: ' + result.data.id + (result.data.has_screenshot ? '（含截图）' : ''), 'success');
+                    form.reset();
+                    selectedFiles = [];
+                    renderPreview();
+                    setTokenStatus('系统就绪，可继续提交', 'green');
+
+                    // 启动 60 秒冷却
+                    startCountdown(60);
+                } else if (resp.status === 429) {
+                    // 频率限制
+                    setStatus(result.message || '提交过于频繁', 'error');
+                    checkRateLimit();
+                } else {
+                    setStatus('提交失败: ' + (result.message || '未知错误'), 'error');
+                    setTokenStatus('上次提交失败', 'red');
+                    submitBtn.disabled = false;
+                    submitBtn.querySelector('span').textContent = '提交到后台';
+                }
+            } catch (err) {
+                setStatus('网络错误: ' + err.message, 'error');
+                setTokenStatus('连接失败', 'red');
+                submitBtn.disabled = false;
+                submitBtn.querySelector('span').textContent = '提交到后台';
+            }
+        });
+
+        statusDiv.addEventListener('click', function() {
+            if (this.classList.contains('success') || this.classList.contains('error')) {
+                this.style.display = 'none';
+            }
+        });
+
+        console.log('Bug 提交脚本已加载。后端: ' + API_URL + ' | 单图上传 | 频率限制 1次/分钟（持久化）');
+    })();
+</script>
+
+</body>
+</html>

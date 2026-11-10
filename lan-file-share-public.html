@@ -1,0 +1,2340 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>公共共享 - LanFileShare</title>
+<script src="CDN/tailwindcss.js"></script>
+<script src="CDN/pdf.min.js"></script>
+<script src="CDN/mammoth.browser.min.js"></script>
+<script src="CDN/xlsx.full.min.js"></script>
+<script src="CDN/upload-fingerprint.js"></script>
+<style>.iconify-icon{display:inline-block;width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0}.audio-title-wrap{overflow:hidden;white-space:nowrap;position:relative}.audio-title-inner{display:inline-block;white-space:nowrap}.audio-title-inner.marquee{animation:marquee 8s linear infinite}@keyframes marquee{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}</style>
+<!-- SVG Icons sprite loaded below -->
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+<symbol id="login" viewBox="0 0 24 24"><path fill="currentColor" d="M11 7L9.6 8.4l2.6 2.6H2v2h10.2l-2.6 2.6L11 17l5-5zm9 12h-8v2h8c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-8v2h8z"/></symbol>
+<symbol id="folder_open_outline" viewBox="0 0 24 24"><path fill="currentColor" d="M6.1 10L4 18V8h17a2 2 0 0 0-2-2h-7l-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h15c.9 0 1.7-.6 1.9-1.5l2.3-8.5zM19 18H6l1.6-6h13z"/></symbol>
+<symbol id="cloud_upload_outline" viewBox="0 0 24 24"><path fill="currentColor" d="M6.5 20q-2.28 0-3.89-1.57Q1 16.85 1 14.58q0-1.95 1.17-3.48q1.18-1.53 3.08-1.95q.63-2.3 2.5-3.72Q9.63 4 12 4q2.93 0 4.96 2.04Q19 8.07 19 11q1.73.2 2.86 1.5q1.14 1.28 1.14 3q0 1.88-1.31 3.19T18.5 20H13q-.82 0-1.41-.59Q11 18.83 11 18v-5.15L9.4 14.4L8 13l4-4l4 4l-1.4 1.4l-1.6-1.55V18h5.5q1.05 0 1.77-.73q.73-.72.73-1.77t-.73-1.77Q19.55 13 18.5 13H17v-2q0-2.07-1.46-3.54Q14.08 6 12 6Q9.93 6 8.46 7.46Q7 8.93 7 11h-.5q-1.45 0-2.47 1.03Q3 13.05 3 14.5T4.03 17q1.02 1 2.47 1H9v2m3-7"/></symbol>
+<symbol id="folder_upload_outline" viewBox="0 0 24 24"><path fill="currentColor" d="M20 18H4V8h16m0-2h-8l-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2m-4 11h-2v-4h-3l4-4l4 4h-3Z"/></symbol>
+<symbol id="upload" viewBox="0 0 24 24"><path fill="currentColor" d="M9 16v-6H5l7-7l7 7h-4v6zm-4 4v-2h14v2z"/></symbol>
+<symbol id="stop" viewBox="0 0 24 24"><path fill="currentColor" d="M18 18H6V6h12z"/></symbol>
+<symbol id="loading" viewBox="0 0 24 24"><path fill="currentColor" d="M12 4V2A10 10 0 0 0 2 12h2a8 8 0 0 1 8-8"/></symbol>
+<symbol id="rotate_left" viewBox="0 0 24 24"><path fill="currentColor" d="M13 4.07V1L8.45 5.55L13 10V6.09c2.84.48 5 2.94 5 5.91s-2.16 5.43-5 5.91v2.02c3.95-.49 7-3.85 7-7.93s-3.05-7.44-7-7.93M7.1 18.32c1.16.9 2.51 1.44 3.9 1.61V17.9c-.87-.15-1.71-.49-2.46-1.03zM6.09 13H4.07c.17 1.39.72 2.73 1.62 3.89l1.41-1.42c-.52-.75-.87-1.59-1.01-2.47m1.02-4.47L5.7 7.11C4.8 8.27 4.24 9.61 4.07 11h2.02c.14-.87.49-1.72 1.02-2.47"/></symbol>
+<symbol id="rotate_right" viewBox="0 0 24 24"><path fill="currentColor" d="m16.89 15.5l1.42 1.39c.9-1.16 1.45-2.5 1.62-3.89h-2.02c-.14.87-.48 1.72-1.02 2.5M13 17.9v2.02c1.39-.17 2.74-.71 3.9-1.61l-1.44-1.44c-.75.54-1.59.89-2.46 1.03m6.93-6.9a7.9 7.9 0 0 0-1.62-3.89l-1.42 1.42c.54.75.88 1.6 1.02 2.47m-2.36-5.45L11 1v3.07C7.06 4.56 4 7.92 4 12s3.05 7.44 7 7.93v-2.02c-2.84-.48-5-2.94-5-5.91s2.16-5.43 5-5.91V10z"/></symbol>
+<symbol id="magnify_minus_outline" viewBox="0 0 24 24"><path fill="currentColor" d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5A6.5 6.5 0 0 0 9.5 3A6.5 6.5 0 0 0 3 9.5A6.5 6.5 0 0 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 5l1.5-1.5zm-6 0C7 14 5 12 5 9.5S7 5 9.5 5S14 7 14 9.5S12 14 9.5 14M7 9h5v1H7z"/></symbol>
+<symbol id="magnify_plus_outline" viewBox="0 0 24 24"><path fill="currentColor" d="m15.5 14l5 5l-1.5 1.5l-5-5v-.79l-.27-.28A6.47 6.47 0 0 1 9.5 16A6.5 6.5 0 0 1 3 9.5A6.5 6.5 0 0 1 9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.57 4.23l.28.27zm-6 0C12 14 14 12 14 9.5S12 5 9.5 5S5 7 5 9.5S7 14 9.5 14m2.5-4h-2v2H9v-2H7V9h2V7h1v2h2z"/></symbol>
+<symbol id="image_refresh_outline" viewBox="0 0 24 24"><path fill="currentColor" d="M14.68 13.25a6.5 6.5 0 0 0-2.5 3.75H6.5l2.75-3.53l1.96 2.36l2.75-3.54zM5 19V5h14v7.03c.7.06 1.38.21 2 .47V5a2 2 0 0 0-2-2H5c-1.1 0-2 .9-2 2v14a2 2 0 0 0 2 2h7.5c-.26-.62-.41-1.3-.47-2zm17-.5v-4l-1.17 1.17A4 4 0 0 0 18 14.5c-2.21 0-4 1.79-4 4s1.79 4 4 4c1.68 0 3.12-1.03 3.71-2.5H20a2.5 2.5 0 1 1-.23-3.27L18 18.5z"/></symbol>
+<symbol id="chevron_left" viewBox="0 0 24 24"><path fill="currentColor" d="M15.41 16.58L10.83 12l4.58-4.59L14 6l-6 6l6 6z"/></symbol>
+<symbol id="chevron_right" viewBox="0 0 24 24"><path fill="currentColor" d="M8.59 16.58L13.17 12L8.59 7.41L10 6l6 6l-6 6z"/></symbol>
+<symbol id="close" viewBox="0 0 24 24"><path fill="currentColor" d="M19 6.41L17.59 5L12 10.59L6.41 5L5 6.41L10.59 12L5 17.59L6.41 19L12 13.41L17.59 19L19 17.59L13.41 12z"/></symbol>
+<symbol id="play" viewBox="0 0 24 24"><path fill="currentColor" d="M8 5.14v14l11-7z"/></symbol>
+<symbol id="volume_high" viewBox="0 0 24 24"><path fill="currentColor" d="M14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.84-5 6.7v2.07c4-.91 7-4.49 7-8.77s-3-7.86-7-8.77M16.5 12c0-1.77-1-3.29-2.5-4.03V16c1.5-.71 2.5-2.24 2.5-4M3 9v6h4l5 5V4L7 9z"/></symbol>
+<symbol id="fullscreen" viewBox="0 0 24 24"><path fill="currentColor" d="M5 5h5v2H7v3H5zm9 0h5v5h-2V7h-3zm3 9h2v5h-5v-2h3zm-7 3v2H5v-5h2v3z"/></symbol>
+<symbol id="folder" viewBox="0 0 24 24"><path fill="currentColor" d="M10 4H4c-1.11 0-2 .89-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8z"/></symbol>
+<symbol id="eye_outline" viewBox="0 0 24 24"><path fill="currentColor" d="M12 9a3 3 0 0 1 3 3a3 3 0 0 1-3 3a3 3 0 0 1-3-3a3 3 0 0 1 3-3m0-4.5c5 0 9.27 3.11 11 7.5c-1.73 4.39-6 7.5-11 7.5S2.73 16.39 1 12c1.73-4.39 6-7.5 11-7.5M3.18 12a9.821 9.821 0 0 0 17.64 0a9.821 9.821 0 0 0-17.64 0"/></symbol>
+<symbol id="download" viewBox="0 0 24 24"><path fill="currentColor" d="M5 20h14v-2H5m14-9h-4V3H9v6H5l7 7z"/></symbol>
+<symbol id="pause" viewBox="0 0 24 24"><path fill="currentColor" d="M14 19h4V5h-4M6 19h4V5H6z"/></symbol>
+<symbol id="volume_off" viewBox="0 0 24 24"><path fill="currentColor" d="M12 4L9.91 6.09L12 8.18M4.27 3L3 4.27L7.73 9H3v6h4l5 5v-6.73l4.25 4.26c-.67.51-1.42.93-2.25 1.17v2.07c1.38-.32 2.63-.95 3.68-1.81L19.73 21L21 19.73l-9-9M19 12c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.9 8.9 0 0 0 21 12c0-4.28-3-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71m-2.5 0c0-1.77-1-3.29-2.5-4.03v2.21l2.45 2.45c.05-.2.05-.42.05-.63"/></symbol>
+<symbol id="volume_medium" viewBox="0 0 24 24"><path fill="currentColor" d="M5 9v6h4l5 5V4L9 9m9.5 3c0-1.77-1-3.29-2.5-4.03V16c1.5-.71 2.5-2.24 2.5-4"/></symbol>
+<symbol id="replay" viewBox="0 0 24 24"><path fill="currentColor" d="M12 5V1L7 6l5 5V7a6 6 0 0 1 6 6a6 6 0 0 1-6 6a6 6 0 0 1-6-6H4a8 8 0 0 0 8 8a8 8 0 0 0 8-8a8 8 0 0 0-8-8"/></symbol>
+<symbol id="broom" viewBox="0 0 24 24"><path fill="currentColor" d="m19.36 2.72l1.42 1.42l-5.72 5.71c1.07 1.54 1.22 3.39.32 4.59L9.06 8.12c1.2-.9 3.05-.75 4.59.32zM5.93 17.57c-2.01-2.01-3.24-4.41-3.58-6.65l4.88-2.09l7.44 7.44l-2.09 4.88c-2.24-.34-4.64-1.57-6.65-3.58"/></symbol>
+<symbol id="lan_connect" viewBox="0 0 24 24"><path fill="currentColor" d="M4 1c-1.11 0-2 .89-2 2v4c0 1.11.89 2 2 2H1v2h12V9h-3c1.11 0 2-.89 2-2V3c0-1.11-.89-2-2-2zm0 2h6v4H4zM3 13v7h7v-2H5v-5zm11 0c-1.11 0-2 .89-2 2v4c0 1.11.89 2 2 2h-3v2h12v-2h-3c1.11 0 2-.89 2-2v-4c0-1.11-.89-2-2-2zm0 2h6v4h-6z"/></symbol>
+<symbol id="stop_circle_outline" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2A10 10 0 0 0 2 12a10 10 0 0 0 10 10a10 10 0 0 0 10-10A10 10 0 0 0 12 2m0 2c4.41 0 8 3.59 8 8s-3.59 8-8 8s-8-3.59-8-8s3.59-8 8-8M9 9v6h6V9"/></symbol>
+<symbol id="link_variant" viewBox="0 0 24 24"><path fill="currentColor" d="M10.59 13.41c.41.39.41 1.03 0 1.42c-.39.39-1.03.39-1.42 0a5.003 5.003 0 0 1 0-7.07l3.54-3.54a5.003 5.003 0 0 1 7.07 0a5.003 5.003 0 0 1 0 7.07l-1.49 1.49c.01-.82-.12-1.64-.4-2.42l.47-.48a2.98 2.98 0 0 0 0-4.24a2.98 2.98 0 0 0-4.24 0l-3.53 3.53a2.98 2.98 0 0 0 0 4.24m2.82-4.24c.39-.39 1.03-.39 1.42 0a5.003 5.003 0 0 1 0 7.07l-3.54 3.54a5.003 5.003 0 0 1-7.07 0a5.003 5.003 0 0 1 0-7.07l1.49-1.49c-.01.82.12 1.64.4 2.43l-.47.47a2.98 2.98 0 0 0 0 4.24a2.98 2.98 0 0 0 4.24 0l3.53-3.53a2.98 2.98 0 0 0 0-4.24a.973.973 0 0 1 0-1.42"/></symbol>
+<symbol id="content_copy" viewBox="0 0 24 24"><path fill="currentColor" d="M19 21H8V7h11m0-2H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2m-3-4H4a2 2 0 0 0-2 2v14h2V3h12z"/></symbol>
+<symbol id="open_in_new" viewBox="0 0 24 24"><path fill="currentColor" d="M14 3v2h3.59l-9.83 9.83l1.41 1.41L19 6.41V10h2V3m-2 16H5V5h7V3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7h-2z"/></symbol>
+<symbol id="qrcode" viewBox="0 0 24 24"><path fill="currentColor" d="M3 11h2v2H3zm8-6h2v4h-2zm-2 6h4v4h-2v-2H9zm6 0h2v2h2v-2h2v2h-2v2h2v4h-2v2h-2v-2h-4v2h-2v-4h4v-2h2v-2h-2zm4 8v-4h-2v4zM15 3h6v6h-6zm2 2v2h2V5zM3 3h6v6H3zm2 2v2h2V5zM3 15h6v6H3zm2 2v2h2v-2z"/></symbol>
+<symbol id="account_group" viewBox="0 0 24 24"><path fill="currentColor" d="M12 5.5A3.5 3.5 0 0 1 15.5 9a3.5 3.5 0 0 1-3.5 3.5A3.5 3.5 0 0 1 8.5 9A3.5 3.5 0 0 1 12 5.5M5 8c.56 0 1.08.15 1.53.42c-.15 1.43.27 2.85 1.13 3.96C7.16 13.34 6.16 14 5 14a3 3 0 0 1-3-3a3 3 0 0 1 3-3m14 0a3 3 0 0 1 3 3a3 3 0 0 1-3 3c-1.16 0-2.16-.66-2.66-1.62a5.54 5.54 0 0 0 1.13-3.96c.45-.27.97-.42 1.53-.42M5.5 18.25c0-2.07 2.91-3.75 6.5-3.75s6.5 1.68 6.5 3.75V20h-13zM0 20v-1.5c0-1.39 1.89-2.56 4.45-2.9c-.59.68-.95 1.62-.95 2.65V20zm24 0h-3.5v-1.75c0-1.03-.36-1.97-.95-2.65c2.56.34 4.45 1.51 4.45 2.9z"/></symbol>
+<symbol id="cog_outline" viewBox="0 0 24 24"><path fill="currentColor" d="M12 8a4 4 0 0 1 4 4a4 4 0 0 1-4 4a4 4 0 0 1-4-4a4 4 0 0 1 4-4m0 2a2 2 0 0 0-2 2a2 2 0 0 0 2 2a2 2 0 0 0 2-2a2 2 0 0 0-2-2m-2 12c-.25 0-.46-.18-.5-.42l-.37-2.65c-.63-.25-1.17-.59-1.69-.99l-2.49 1.01c-.22.08-.49 0-.61-.22l-2-3.46a.493.493 0 0 1 .12-.64l2.11-1.66L4.5 12l.07-1l-2.11-1.63a.493.493 0 0 1-.12-.64l2-3.46c.12-.22.39-.31.61-.22l2.49 1c.52-.39 1.06-.73 1.69-.98l.37-2.65c.04-.24.25-.42.5-.42h4c.25 0 .46.18.5.42l.37 2.65c.63.25 1.17.59 1.69.98l2.49-1c.22-.09.49 0 .61.22l2 3.46c.13.22.07.49-.12.64L19.43 11l.07 1l-.07 1l2.11 1.63c.19.15.25.42.12.64l-2 3.46c-.12.22-.39.31-.61.22l-2.49-1c-.52.39-1.06.73-1.69.98l-.37 2.65c-.04.24-.25.42-.5.42zm1.25-18l-.37 2.61c-1.2.25-2.26.89-3.03 1.78L5.44 7.35l-.75 1.3L6.8 10.2a5.55 5.55 0 0 0 0 3.6l-2.12 1.56l.75 1.3l2.43-1.04c.77.88 1.82 1.52 3.01 1.76l.37 2.62h1.52l.37-2.61c1.19-.25 2.24-.89 3.01-1.77l2.43 1.04l.75-1.3l-2.12-1.55c.4-1.17.4-2.44 0-3.61l2.11-1.55l-.75-1.3l-2.41 1.04a5.42 5.42 0 0 0-3.03-1.77L12.75 4z"/></symbol>
+<symbol id="trash_can_outline" viewBox="0 0 24 24"><path fill="currentColor" d="M9 3v1H4v2h1v13a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6h1V4h-5V3zM7 6h10v13H7zm2 2v9h2V8zm4 0v9h2V8z"/></symbol>
+<symbol id="update" viewBox="0 0 24 24"><path fill="currentColor" d="M21 10.12h-6.78l2.74-2.82c-2.73-2.7-7.15-2.8-9.88-.1a6.887 6.887 0 0 0 0 9.8c2.73 2.7 7.15 2.7 9.88 0c1.36-1.35 2.04-2.92 2.04-4.9h2c0 1.98-.88 4.55-2.64 6.29c-3.51 3.48-9.21 3.48-12.72 0c-3.5-3.47-3.53-9.11-.02-12.58a8.987 8.987 0 0 1 12.65 0L21 3zM12.5 8v4.25l3.5 2.08l-.72 1.21L11 13V8z"/></symbol>
+<symbol id="earth" viewBox="0 0 24 24"><path fill="currentColor" d="M17.9 17.39c-.26-.8-1.01-1.39-1.9-1.39h-1v-3a1 1 0 0 0-1-1H8v-2h2a1 1 0 0 0 1-1V7h2a2 2 0 0 0 2-2v-.41a7.984 7.984 0 0 1 2.9 12.8M11 19.93c-3.95-.49-7-3.85-7-7.93c0-.62.08-1.22.21-1.79L9 15v1a2 2 0 0 0 2 2m1-16A10 10 0 0 0 2 12a10 10 0 0 0 10 10a10 10 0 0 0 10-10A10 10 0 0 0 12 2"/></symbol>
+<symbol id="tune_vertical" viewBox="0 0 24 24"><path fill="currentColor" d="M7 3H5v6h2zm12 0h-2v10h2zM3 13h2v8h2v-8h2v-2H3zm12-6h-2V3h-2v4H9v2h6zm-4 14h2V11h-2zm4-6v2h2v4h2v-4h2v-2z"/></symbol>
+<symbol id="rocket_launch" viewBox="0 0 24 24"><path fill="currentColor" d="m13.16 22.19l-1.66-3.84c1.6-.58 3.07-1.35 4.43-2.27l-2.78 6.11m-7.5-9.69l-3.84-1.65l6.11-2.78a20 20 0 0 0-2.27 4.43M21.66 2.35S23.78 7.31 18.11 13c-2.2 2.17-4.58 3.5-6.73 4.34c-.74.28-1.57.1-2.12-.46l-2.13-2.13c-.56-.56-.74-1.38-.47-2.13C7.5 10.5 8.83 8.09 11 5.89C16.69.216 21.66 2.35 21.66 2.35M6.25 22H4.84l4.09-4.1c.3.21.63.36.97.45zM2 22v-1.41l4.77-4.78l1.43 1.42L3.41 22zm0-2.84v-1.41l3.65-3.65c.09.35.24.68.45.97zM16 6a2 2 0 1 0 0 4c1.11 0 2-.89 2-2a2 2 0 0 0-2-2"/></symbol>
+<symbol id="tray_arrow_down" viewBox="0 0 24 24"><path fill="currentColor" d="M2 12h2v5h16v-5h2v5c0 1.11-.89 2-2 2H4a2 2 0 0 1-2-2zm10 3l5.55-5.46l-1.42-1.41L13 11.25V2h-2v9.25L7.88 8.13L6.46 9.55z"/></symbol>
+<symbol id="account_cog_outline" viewBox="0 0 24 24"><path fill="currentColor" d="M10 4a4 4 0 0 0-4 4a4 4 0 0 0 4 4a4 4 0 0 0 4-4a4 4 0 0 0-4-4m0 2a2 2 0 0 1 2 2a2 2 0 0 1-2 2a2 2 0 0 1-2-2a2 2 0 0 1 2-2m7 6q-.24 0-.24.24l-.26 1.26c-.22.18-.54.34-.78.5l-1.28-.5c-.08 0-.24 0-.32.1l-.96 1.76c-.08.08-.08.24.08.32l1.04.82v1l-1.04.82c-.08.08-.16.24-.08.32l.96 1.76c.08.1.24.1.32.1l1.28-.5c.24.16.56.32.78.5l.26 1.26q0 .24.24.24h2c.08 0 .24-.08.24-.24l.16-1.26c.32-.18.64-.34.88-.5l1.22.5c.14 0 .3 0 .3-.1l1.04-1.76c.08-.08 0-.24-.08-.32l-1.04-.82v-1l1.04-.82c.08-.08.16-.24.08-.32L21.8 13.6c0-.1-.16-.1-.3-.1l-1.22.5c-.24-.16-.56-.32-.88-.5l-.16-1.26c0-.16-.16-.24-.24-.24zm-7 1c-2.67 0-8 1.33-8 4v3h9.67c-.28-.59-.48-1.23-.58-1.9H3.9V17c0-.64 3.13-2.1 6.1-2.1c.43 0 .87.04 1.3.1c.2-.64.47-1.24.82-1.79c-.78-.13-1.52-.21-2.12-.21m8.04 2.5c.8 0 1.46.66 1.46 1.54c0 .8-.66 1.46-1.46 1.46c-.88 0-1.54-.66-1.54-1.46c0-.88.66-1.54 1.54-1.54"/></symbol>
+<symbol id="console" viewBox="0 0 24 24"><path fill="currentColor" d="M20 19V7H4v12zm0-16a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm-7 14v-2h5v2zm-3.42-4L5.57 9H8.4l3.3 3.3c.39.39.39 1.03 0 1.42L8.42 17H5.59z"/></symbol>
+<symbol id="file_import_outline" viewBox="0 0 24 24"><path fill="currentColor" d="M14 2H6a2 2 0 0 0-2 2v16c0 1.11.89 2 2 2h12c1.11 0 2-.89 2-2V8zm4 18H6V4h7v5h5zm-3-8.07V19H7.93l2.12-2.12l-2.83-2.83l2.83-2.83l2.83 2.83z"/></symbol>
+<symbol id="account_plus_outline" viewBox="0 0 24 24"><path fill="currentColor" d="M15 4a4 4 0 0 0-4 4a4 4 0 0 0 4 4a4 4 0 0 0 4-4a4 4 0 0 0-4-4m0 1.9a2.1 2.1 0 1 1 0 4.2A2.1 2.1 0 0 1 12.9 8A2.1 2.1 0 0 1 15 5.9M4 7v3H1v2h3v3h2v-3h3v-2H6V7zm11 6c-2.67 0-8 1.33-8 4v3h16v-3c0-2.67-5.33-4-8-4m0 1.9c2.97 0 6.1 1.46 6.1 2.1v1.1H8.9V17c0-.64 3.1-2.1 6.1-2.1"/></symbol>
+<symbol id="file_upload_outline" viewBox="0 0 24 24"><path fill="currentColor" d="m14 2l6 6v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm4 18V9h-5V4H6v16zm-6-8l4 4h-2.5v3h-3v-3H8z"/></symbol>
+<symbol id="restart" viewBox="0 0 24 24"><path fill="currentColor" d="M12 4c2.1 0 4.1.8 5.6 2.3c3.1 3.1 3.1 8.2 0 11.3c-1.8 1.9-4.3 2.6-6.7 2.3l.5-2c1.7.2 3.5-.4 4.8-1.7c2.3-2.3 2.3-6.1 0-8.5C15.1 6.6 13.5 6 12 6v4.6l-5-5l5-5zM6.3 17.6C3.7 15 3.3 11 5.1 7.9l1.5 1.5c-1.1 2.2-.7 5 1.2 6.8q.75.75 1.8 1.2l-.6 2q-1.5-.6-2.7-1.8"/></symbol>
+<symbol id="qrcode_scan" viewBox="0 0 24 24"><path fill="currentColor" d="M4 4h6v6H4zm16 0v6h-6V4zm-6 11h2v-2h-2v-2h2v2h2v-2h2v2h-2v2h2v3h-2v2h-2v-2h-3v2h-2v-4h3zm2 0v3h2v-3zM4 20v-6h6v6zM6 6v2h2V6zm10 0v2h2V6zM6 16v2h2v-2zm-2-5h2v2H4zm5 0h4v4h-2v-2H9zm2-5h2v4h-2zM2 2v4H0V2a2 2 0 0 1 2-2h4v2zm20-2a2 2 0 0 1 2 2v4h-2V2h-4V0zM2 18v4h4v2H2a2 2 0 0 1-2-2v-4zm20 4v-4h2v4a2 2 0 0 1-2 2h-4v-2z"/></symbol>
+<symbol id="check_circle" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10s10-4.5 10-10S17.5 2 12 2m-2 15l-5-5l1.41-1.41L10 14.17l7.59-7.59L19 8z"/></symbol>
+<symbol id="play_circle_outline" viewBox="0 0 24 24"><path fill="currentColor" d="M12 20c-4.41 0-8-3.59-8-8s3.59-8 8-8s8 3.59 8 8s-3.59 8-8 8m0-18A10 10 0 0 0 2 12a10 10 0 0 0 10 10a10 10 0 0 0 10-10A10 10 0 0 0 12 2m-2 14.5l6-4.5l-6-4.5z"/></symbol>
+<symbol id="account_edit_outline" viewBox="0 0 24 24"><path fill="currentColor" d="M2 17v3h8v-1.89H3.9V17c0-.64 3.13-2.1 6.1-2.1c.96.01 1.91.14 2.83.38l1.52-1.52c-1.4-.47-2.85-.73-4.35-.76c-2.67 0-8 1.33-8 4m8-13C7.79 4 6 5.79 6 8s1.79 4 4 4s4-1.79 4-4s-1.79-4-4-4m0 6c-1.1 0-2-.89-2-2s.9-2 2-2s2 .9 2 2s-.89 2-2 2m11.7 3.35l-1 1l-2.05-2l1-1a.55.55 0 0 1 .77 0l1.28 1.28c.21.21.21.56 0 .77M12 18.94l6.06-6.06l2.05 2l-6 6.07H12z"/></symbol>
+<symbol id="account_circle_outline" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2A10 10 0 0 0 2 12a10 10 0 0 0 10 10a10 10 0 0 0 10-10A10 10 0 0 0 12 2M7.07 18.28c.43-.9 3.05-1.78 4.93-1.78s4.5.88 4.93 1.78A7.9 7.9 0 0 1 12 20c-1.86 0-3.57-.64-4.93-1.72m11.29-1.45c-1.43-1.74-4.9-2.33-6.36-2.33s-4.93.59-6.36 2.33A7.93 7.93 0 0 1 4 12c0-4.41 3.59-8 8-8s8 3.59 8 8c0 1.82-.62 3.5-1.64 4.83M12 6c-1.94 0-3.5 1.56-3.5 3.5S10.06 13 12 13s3.5-1.56 3.5-3.5S13.94 6 12 6m0 5a1.5 1.5 0 0 1-1.5-1.5A1.5 1.5 0 0 1 12 8a1.5 1.5 0 0 1 1.5 1.5A1.5 1.5 0 0 1 12 11"/></symbol>
+<symbol id="pencil_outline" viewBox="0 0 24 24"><path fill="currentColor" d="m14.06 9l.94.94L5.92 19H5v-.92zm3.6-6c-.25 0-.51.1-.7.29l-1.83 1.83l3.75 3.75l1.83-1.83c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.2-.2-.45-.29-.71-.29m-3.6 3.19L3 17.25V21h3.75L17.81 9.94z"/></symbol>
+<symbol id="delete_outline" viewBox="0 0 24 24"><path fill="currentColor" d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6zM8 9h8v10H8zm7.5-5l-1-1h-5l-1 1H5v2h14V4z"/></symbol>
+<symbol id="eye_off_outline" viewBox="0 0 24 24"><path fill="currentColor" d="M2 5.27L3.28 4L20 20.72L18.73 22l-3.08-3.08c-1.15.38-2.37.58-3.65.58c-5 0-9.27-3.11-11-7.5c.69-1.76 1.79-3.31 3.19-4.54zM12 9a3 3 0 0 1 3 3a3 3 0 0 1-.17 1L11 9.17A3 3 0 0 1 12 9m0-4.5c5 0 9.27 3.11 11 7.5a11.8 11.8 0 0 1-4 5.19l-1.42-1.43A9.86 9.86 0 0 0 20.82 12A9.82 9.82 0 0 0 12 6.5c-1.09 0-2.16.18-3.16.5L7.3 5.47c1.44-.62 3.03-.97 4.7-.97M3.18 12A9.82 9.82 0 0 0 12 17.5c.69 0 1.37-.07 2-.21L11.72 15A3.064 3.064 0 0 1 9 12.28L5.6 8.87c-.99.85-1.82 1.91-2.42 3.13"/></symbol>
+<symbol id="incognito" viewBox="0 0 24 24"><path fill="currentColor" d="M17.06 13c-1.86 0-3.42 1.33-3.82 3.1c-.95-.41-1.82-.3-2.48-.01C10.35 14.31 8.79 13 6.94 13C4.77 13 3 14.79 3 17s1.77 4 3.94 4c2.06 0 3.74-1.62 3.9-3.68c.34-.24 1.23-.69 2.32.02c.18 2.05 1.84 3.66 3.9 3.66c2.17 0 3.94-1.79 3.94-4s-1.77-4-3.94-4M6.94 19.86c-1.56 0-2.81-1.28-2.81-2.86s1.26-2.86 2.81-2.86c1.56 0 2.81 1.28 2.81 2.86s-1.25 2.86-2.81 2.86m10.12 0c-1.56 0-2.81-1.28-2.81-2.86s1.25-2.86 2.81-2.86s2.82 1.28 2.82 2.86s-1.27 2.86-2.82 2.86M22 10.5H2V12h20zm-6.47-7.87c-.22-.49-.78-.75-1.31-.58L12 2.79l-2.23-.74l-.05-.01c-.53-.15-1.09.13-1.29.64L6 9h12l-2.44-6.32z"/></symbol>
+<symbol id="account_circle" viewBox="0 0 24 24"><path fill="currentColor" d="M12 19.2c-2.5 0-4.71-1.28-6-3.2c.03-2 4-3.1 6-3.1s5.97 1.1 6 3.1a7.23 7.23 0 0 1-6 3.2M12 5a3 3 0 0 1 3 3a3 3 0 0 1-3 3a3 3 0 0 1-3-3a3 3 0 0 1 3-3m0-3A10 10 0 0 0 2 12a10 10 0 0 0 10 10a10 10 0 0 0 10-10c0-5.53-4.5-10-10-10"/></symbol>
+<symbol id="file_plus_outline" viewBox="0 0 24 24"><path fill="currentColor" d="M13.81 22H6c-1.11 0-2-.89-2-2V4a2 2 0 0 1 2-2h8l6 6v5.09c-.33-.05-.66-.09-1-.09s-.67.04-1 .09V9h-5V4H6v16h7.09c.12.72.37 1.39.72 2M23 18h-3v-3h-2v3h-3v2h3v3h2v-3h3z"/></symbol>
+<symbol id="folder_plus_outline" viewBox="0 0 24 24"><path fill="currentColor" d="M13 19c0 .34.04.67.09 1H4a2 2 0 0 1-2-2V6c0-1.11.89-2 2-2h6l2 2h8a2 2 0 0 1 2 2v5.81c-.61-.35-1.28-.59-2-.72V8H4v10h9.09c-.05.33-.09.66-.09 1m7-1v-3h-2v3h-3v2h3v3h2v-3h3v-2z"/></symbol>
+<symbol id="share_variant" viewBox="0 0 24 24"><path fill="currentColor" d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3a3 3 0 0 0-3-3a3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3a3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66c0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></symbol>
+<symbol id="information_outline" viewBox="0 0 24 24"><path fill="currentColor" d="M11 9h2V7h-2m1 13c-4.41 0-8-3.59-8-8s3.59-8 8-8s8 3.59 8 8s-3.59 8-8 8m0-18A10 10 0 0 0 2 12a10 10 0 0 0 10 10a10 10 0 0 0 10-10A10 10 0 0 0 12 2m-1 15h2v-6h-2z"/></symbol>
+<symbol id="chevron_down" viewBox="0 0 24 24"><path fill="currentColor" d="M7.41 8.58L12 13.17l4.59-4.59L18 10l-6 6l-6-6z"/></symbol>
+<symbol id="lock_reset" viewBox="0 0 24 24"><path fill="currentColor" d="M12.63 2c5.53 0 10.01 4.5 10.01 10s-4.48 10-10.01 10c-3.51 0-6.58-1.82-8.37-4.57l1.58-1.25C7.25 18.47 9.76 20 12.64 20a8 8 0 0 0 8-8a8 8 0 0 0-8-8C8.56 4 5.2 7.06 4.71 11h2.76l-3.74 3.73L0 11h2.69c.5-5.05 4.76-9 9.94-9m2.96 8.24c.5.01.91.41.91.92v4.61c0 .5-.41.92-.92.92h-5.53c-.51 0-.92-.42-.92-.92v-4.61c0-.51.41-.91.91-.92V9.23c0-1.53 1.25-2.77 2.77-2.77c1.53 0 2.78 1.24 2.78 2.77zm-2.78-2.38c-.75 0-1.37.61-1.37 1.37v1.01h2.75V9.23c0-.76-.62-1.37-1.38-1.37"/></symbol>
+<symbol id="download_circle_outline" viewBox="0 0 24 24"><path fill="currentColor" d="M8 17v-2h8v2zm8-7l-4 4l-4-4h2.5V6h3v4zm-4-8c5.5 0 10 4.5 10 10s-4.5 10-10 10S2 17.5 2 12S6.5 2 12 2m0 2c-4.42 0-8 3.58-8 8s3.58 8 8 8s8-3.58 8-8s-3.58-8-8-8"/></symbol>
+<symbol id="upload_circle_outline" viewBox="0 0 24 24"><path fill="currentColor" d="M8 17v-2h8v2zm8-7l-4-4l-4 4h2.5v4h3v-4zm-4-8c5.5 0 10 4.5 10 10s-4.5 10-10 10S2 17.5 2 12S6.5 2 12 2m0 2c-4.42 0-8 3.58-8 8s3.58 8 8 8s8-3.58 8-8s-3.58-8-8-8"/></symbol>
+<symbol id="download_outline" viewBox="0 0 24 24"><path fill="currentColor" d="M13 5v6h1.17L12 13.17L9.83 11H11V5zm2-2H9v6H5l7 7l7-7h-4zm4 15H5v2h14z"/></symbol>
+<symbol id="folder_outline" viewBox="0 0 24 24"><path fill="currentColor" d="M20 18H4V8h16m0-2h-8l-2-2H4c-1.11 0-2 .89-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2"/></symbol>
+<symbol id="file_pdf_box" viewBox="0 0 24 24"><path fill="currentColor" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2m-9.5 8.5c0 .8-.7 1.5-1.5 1.5H7v2H5.5V9H8c.8 0 1.5.7 1.5 1.5zm5 2c0 .8-.7 1.5-1.5 1.5h-2.5V9H13c.8 0 1.5.7 1.5 1.5zm4-3H17v1h1.5V13H17v2h-1.5V9h3zm-6.5 0h1v3h-1zm-5 0h1v1H7z"/></symbol>
+<symbol id="file_word_box" viewBox="0 0 24 24"><path fill="currentColor" d="M15.5 17H14l-2-7.5l-2 7.5H8.5L6.1 7h1.7l1.54 7.5L11.3 7h1.4l1.97 7.5L16.2 7h1.7M19 3H5c-1.11 0-2 .89-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2"/></symbol>
+<symbol id="file_excel_box" viewBox="0 0 24 24"><path fill="currentColor" d="M16.2 17h-2L12 13.2L9.8 17h-2l3.2-5l-3.2-5h2l2.2 3.8L14.2 7h2L13 12m6-9H5c-1.11 0-2 .89-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2"/></symbol>
+<symbol id="file_powerpoint_box" viewBox="0 0 24 24"><path fill="currentColor" d="M9.8 13.4h2.5c1.5 0 2.16-.28 2.8-.82c.64-.55.9-1.33.9-2.35c0-.97-.25-1.73-.9-2.35c-.65-.59-1.27-.88-2.8-.88H8v10h1.8zM19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm-9.2 9V8.4h2.3c.66 0 1.17.25 1.5.6s.5.72.5 1.24c0 .56-.18.95-.5 1.26s-.7.5-1.38.5z"/></symbol>
+<symbol id="file_image_outline" viewBox="0 0 24 24"><path fill="currentColor" d="m14 2l6 6v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm4 18V9h-5V4H6v16zm-1-7v6H7l5-5l2 2m-4-5.5A1.5 1.5 0 0 1 8.5 12A1.5 1.5 0 0 1 7 10.5A1.5 1.5 0 0 1 8.5 9a1.5 1.5 0 0 1 1.5 1.5"/></symbol>
+<symbol id="file_video_outline" viewBox="0 0 24 24"><path fill="currentColor" d="m14 2l6 6v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm4 18V9h-5V4H6v16zm-2-2l-2.5-1.7V18H8v-5h5.5v1.7L16 13z"/></symbol>
+<symbol id="file_music_outline" viewBox="0 0 24 24"><path fill="currentColor" d="m14 2l6 6v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm4 18V9h-5V4H6v16zm-5-10v2h-2v5a2 2 0 0 1-2 2a2 2 0 0 1-2-2a2 2 0 0 1 2-2c.4 0 .7.1 1 .3V10z"/></symbol>
+<symbol id="folder_zip_outline" viewBox="0 0 24 24"><path fill="currentColor" d="M20 6h-8l-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2m0 12h-4v-2h-2v2H4V8h10v2h2V8h4zm-4-6v-2h2v2zm-2 0h2v2h-2zm4 4h-2v-2h2z"/></symbol>
+<symbol id="language_markdown" viewBox="0 0 24 24"><path fill="currentColor" d="M20.56 18H3.44C2.65 18 2 17.37 2 16.59V7.41C2 6.63 2.65 6 3.44 6h17.12c.79 0 1.44.63 1.44 1.41v9.18c0 .78-.65 1.41-1.44 1.41M6.81 15.19v-3.66l1.92 2.35l1.92-2.35v3.66h1.93V8.81h-1.93l-1.92 2.35l-1.92-2.35H4.89v6.38zM19.69 12h-1.92V8.81h-1.92V12h-1.93l2.89 3.28z"/></symbol>
+<symbol id="code_tags" viewBox="0 0 24 24"><path fill="currentColor" d="m14.6 16.6l4.6-4.6l-4.6-4.6L16 6l6 6l-6 6zm-5.2 0L4.8 12l4.6-4.6L8 6l-6 6l6 6z"/></symbol>
+<symbol id="file_document_outline" viewBox="0 0 24 24"><path fill="currentColor" d="M6 2a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm0 2h7v5h5v11H6zm2 8v2h8v-2zm0 4v2h5v-2z"/></symbol>
+<symbol id="language_html5" viewBox="0 0 24 24"><path fill="currentColor" d="m12 17.56l4.07-1.13l.55-6.1H9.38L9.2 8.3h7.6l.2-1.99H7l.56 6.01h6.89l-.23 2.58l-2.22.6l-2.22-.6l-.14-1.66h-2l.29 3.19zM4.07 3h15.86L18.5 19.2L12 21l-6.5-1.8z"/></symbol>
+<symbol id="code_json" viewBox="0 0 24 24"><path fill="currentColor" d="M5 3h2v2H5v5a2 2 0 0 1-2 2a2 2 0 0 1 2 2v5h2v2H5c-1.07-.27-2-.9-2-2v-4a2 2 0 0 0-2-2H0v-2h1a2 2 0 0 0 2-2V5a2 2 0 0 1 2-2m14 0a2 2 0 0 1 2 2v4a2 2 0 0 0 2 2h1v2h-1a2 2 0 0 0-2 2v4a2 2 0 0 1-2 2h-2v-2h2v-5a2 2 0 0 1 2-2a2 2 0 0 1-2-2V5h-2V3zm-7 12a1 1 0 0 1 1 1a1 1 0 0 1-1 1a1 1 0 0 1-1-1a1 1 0 0 1 1-1m-4 0a1 1 0 0 1 1 1a1 1 0 0 1-1 1a1 1 0 0 1-1-1a1 1 0 0 1 1-1m8 0a1 1 0 0 1 1 1a1 1 0 0 1-1 1a1 1 0 0 1-1-1a1 1 0 0 1 1-1"/></symbol>
+<symbol id="file_outline" viewBox="0 0 24 24"><path fill="currentColor" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zm4 18H6V4h7v5h5z"/></symbol>
+<symbol id="file_word" viewBox="0 0 24 24"><path fill="currentColor" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zm1.2 18h-1.4L12 13.2L10.2 20H8.8l-2.2-9h1.5l1.4 6.8l1.8-6.8h1.3l1.8 6.8l1.4-6.8h1.5zM13 9V3.5L18.5 9z"/></symbol>
+<symbol id="file_excel" viewBox="0 0 24 24"><path fill="currentColor" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zm1.8 18H14l-2-3.4l-2 3.4H8.2l2.9-4.5L8.2 11H10l2 3.4l2-3.4h1.8l-2.9 4.5zM13 9V3.5L18.5 9z"/></symbol>
+<symbol id="file_powerpoint" viewBox="0 0 24 24"><path fill="currentColor" d="M12.6 12.3h-2v3.2h2.1c.6 0 .9-.2 1.2-.5s.4-.6.4-1.1s-.1-.8-.4-1.1s-.7-.5-1.3-.5M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zm1.2 14c-.6.5-1.1.7-2.4.7h-2.2V20H9v-9h3.8c1.3 0 1.9.3 2.4.8c.6.6.8 1.2.8 2.1s-.2 1.6-.8 2.1M13 9V3.5L18.5 9z"/></symbol>
+<symbol id="file_image" viewBox="0 0 24 24"><path fill="currentColor" d="M13 9h5.5L13 3.5zM6 2h8l6 6v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4c0-1.11.89-2 2-2m0 18h12v-8l-4 4l-2-2zM8 9a2 2 0 0 0-2 2a2 2 0 0 0 2 2a2 2 0 0 0 2-2a2 2 0 0 0-2-2"/></symbol>
+<symbol id="file_video" viewBox="0 0 24 24"><path fill="currentColor" d="M13 9h5.5L13 3.5zM6 2h8l6 6v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4c0-1.11.89-2 2-2m11 17v-6l-3 2.2V13H7v6h7v-2.2z"/></symbol>
+<symbol id="file_music" viewBox="0 0 24 24"><path fill="currentColor" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zm-1 11h-2v5a2 2 0 0 1-2 2a2 2 0 0 1-2-2a2 2 0 0 1 2-2c.4 0 .7.1 1 .3V11h3zm0-4V3.5L18.5 9z"/></symbol>
+<symbol id="file_document" viewBox="0 0 24 24"><path fill="currentColor" d="M13 9h5.5L13 3.5zM6 2h8l6 6v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4c0-1.11.89-2 2-2m9 16v-2H6v2zm3-4v-2H6v2z"/></symbol>
+<symbol id="file" viewBox="0 0 24 24"><path fill="currentColor" d="M13 9V3.5L18.5 9M6 2c-1.11 0-2 .89-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/></symbol>
+<symbol id="language_javascript" viewBox="0 0 24 24"><path fill="currentColor" d="M3 3h18v18H3zm4.73 15.04c.4.85 1.19 1.55 2.54 1.55c1.5 0 2.53-.8 2.53-2.55v-5.78h-1.7V17c0 .86-.35 1.08-.9 1.08c-.58 0-.82-.4-1.09-.87zm5.98-.18c.5.98 1.51 1.73 3.09 1.73c1.6 0 2.8-.83 2.8-2.36c0-1.41-.81-2.04-2.25-2.66l-.42-.18c-.73-.31-1.04-.52-1.04-1.02c0-.41.31-.73.81-.73c.48 0 .8.21 1.09.73l1.31-.87c-.55-.96-1.33-1.33-2.4-1.33c-1.51 0-2.48.96-2.48 2.23c0 1.38.81 2.03 2.03 2.55l.42.18c.78.34 1.24.55 1.24 1.13c0 .48-.45.83-1.15.83c-.83 0-1.31-.43-1.67-1.03z"/></symbol>
+<symbol id="language_typescript" viewBox="0 0 24 24"><path fill="currentColor" d="M3 3h18v18H3zm10.71 14.86c.5.98 1.51 1.73 3.09 1.73c1.6 0 2.8-.83 2.8-2.36c0-1.41-.81-2.04-2.25-2.66l-.42-.18c-.73-.31-1.04-.52-1.04-1.02c0-.41.31-.73.81-.73c.48 0 .8.21 1.09.73l1.31-.87c-.55-.96-1.33-1.33-2.4-1.33c-1.51 0-2.48.96-2.48 2.23c0 1.38.81 2.03 2.03 2.55l.42.18c.78.34 1.24.55 1.24 1.13c0 .48-.45.83-1.15.83c-.83 0-1.31-.43-1.67-1.03zM13 11.25H8v1.5h1.5V20h1.75v-7.25H13z"/></symbol>
+<symbol id="language_python" viewBox="0 0 24 24"><path fill="currentColor" d="M19.14 7.5A2.86 2.86 0 0 1 22 10.36v3.78A2.86 2.86 0 0 1 19.14 17H12c0 .39.32.96.71.96H17v1.68a2.86 2.86 0 0 1-2.86 2.86H9.86A2.86 2.86 0 0 1 7 19.64v-3.75a2.85 2.85 0 0 1 2.86-2.85h5.25a2.85 2.85 0 0 0 2.85-2.86V7.5zm-4.28 11.79c-.4 0-.72.3-.72.89s.32.71.72.71a.71.71 0 0 0 .71-.71c0-.59-.32-.89-.71-.89m-10-1.79A2.86 2.86 0 0 1 2 14.64v-3.78A2.86 2.86 0 0 1 4.86 8H12c0-.39-.32-.96-.71-.96H7V5.36A2.86 2.86 0 0 1 9.86 2.5h4.28A2.86 2.86 0 0 1 17 5.36v3.75a2.85 2.85 0 0 1-2.86 2.85H8.89a2.85 2.85 0 0 0-2.85 2.86v2.68zM9.14 5.71c.4 0 .72-.3.72-.89s-.32-.71-.72-.71c-.39 0-.71.12-.71.71s.32.89.71.89"/></symbol>
+<symbol id="language_css3" viewBox="0 0 24 24"><path fill="currentColor" d="m5 3l-.65 3.34h13.59L17.5 8.5H3.92l-.66 3.33h13.59l-.76 3.81l-5.48 1.81l-4.75-1.81l.33-1.64H2.85l-.79 4l7.85 3l9.05-3l1.2-6.03l.24-1.21L21.94 3z"/></symbol>
+<symbol id="magnify" viewBox="0 0 24 24"><path fill="currentColor" d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5l-1.5 1.5l-5-5v-.79l-.27-.28A6.52 6.52 0 0 1 9.5 16A6.5 6.5 0 0 1 3 9.5A6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14S14 12 14 9.5S12 5 9.5 5"/></symbol>
+</svg>
+<!-- mux.js removed - TS support cancelled -->
+<style>
+    @import url('CDN/google-fonts.css');
+    body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background: #f1f5f9; margin: 0; }
+    .file-row:hover { background: #f8fafc; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+    .fade-in { animation: fadeIn 0.25s ease-out; }
+    .image-nav-btn:hover { background: rgba(25,118,210,0.85) !important; box-shadow: 0 4px 20px rgba(25,118,210,0.4) !important; }
+    #pub-back-to-top { opacity:0;visibility:hidden;transition:opacity 0.3s,visibility 0.3s; }
+    #pub-back-to-top.show { opacity:1;visibility:visible; }
+    #pub-back-to-top:hover { transform:translateY(-2px);box-shadow:0 6px 24px rgba(18,150,219,0.35); }
+    /* 文档预览 */
+    #pub-doc-preview-container { max-height:70vh; overflow-y:auto; padding:24px 32px; background:#fff; font-size:14px; line-height:1.8; color:#333; font-family:'Segoe UI','Microsoft YaHei',sans-serif; }
+    #pub-doc-preview-container table { border-collapse:collapse; width:100%; margin:8px 0; }
+    #pub-doc-preview-container td, #pub-doc-preview-container th { border:1px solid #d1d5db; padding:4px 8px; vertical-align:top; }
+    #pub-doc-preview-container img { max-width:100%; height:auto; }
+    #pub-doc-preview-container h1 { font-size:1.8em; margin:0.6em 0 0.3em; font-weight:700; color:#1e293b; }
+    #pub-doc-preview-container h2 { font-size:1.5em; margin:0.5em 0 0.25em; font-weight:600; color:#334155; }
+    #pub-doc-preview-container h3 { font-size:1.25em; margin:0.4em 0 0.2em; font-weight:600; color:#475569; }
+    #pub-doc-preview-container h4 { font-size:1.1em; margin:0.3em 0 0.15em; font-weight:600; }
+    #pub-doc-preview-container p { margin:0.5em 0; }
+    #pub-doc-preview-container ul, #pub-doc-preview-container ol { padding-left:1.8em; margin:0.4em 0; }
+    #pub-doc-preview-container li { margin:0.15em 0; }
+    #pub-doc-preview-container blockquote { border-left:3px solid #e2e8f0; padding-left:12px; margin:0.5em 0; color:#64748b; }
+    #pub-doc-preview-container pre { background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:12px; overflow-x:auto; font-size:13px; line-height:1.5; }
+    #pub-doc-preview-container code { background:#f1f5f9; padding:1px 4px; border-radius:3px; font-size:0.9em; }
+    #pub-doc-preview-container pre code { background:none; padding:0; }
+    #pub-doc-preview-container hr { border:none; border-top:1px solid #e2e8f0; margin:12px 0; }
+    #pub-doc-preview-container a { color:#2563eb; text-decoration:underline; }
+    #pub-doc-preview-container strong, #pub-doc-preview-container b { font-weight:700; }
+    #pub-doc-preview-container em, #pub-doc-preview-container i { font-style:italic; }
+    #pub-doc-preview-excel-wrap { max-height:70vh; overflow:auto; background:#fff; }
+    #pub-doc-preview-excel-wrap table { border-collapse:collapse; font-size:12px; width:max-content; min-width:100%; }
+    #pub-doc-preview-excel-wrap td, #pub-doc-preview-excel-wrap th { border:1px solid #cbd5e1; padding:4px 10px; white-space:nowrap; min-width:60px; }
+    #pub-doc-preview-excel-wrap th { background:#f1f5f9; font-weight:600; position:sticky; top:0; z-index:1; color:#334155; }
+    #pub-doc-preview-excel-wrap tr:nth-child(even) td { background:#f8fafc; }
+    #pub-doc-preview-excel-wrap tr:hover td { background:#e0f2fe; }
+    .excel-sheet-tab { padding:5px 14px; border:1px solid #cbd5e1; border-bottom:none; border-radius:6px 6px 0 0; background:#f1f5f9; color:#64748b; font-size:12px; cursor:pointer; transition:all 0.15s; }
+    .excel-sheet-tab:hover { background:#e2e8f0; color:#334155; }
+    .excel-sheet-tab.active { background:#fff; color:#1e40af; border-color:#3b82f6; font-weight:600; }
+    #pub-doc-preview-text { max-height:70vh; overflow:auto; padding:16px 24px; background:#1e293b; color:#e2e8f0; font-family:'Fira Code',Consolas,monospace; font-size:13px; line-height:1.7; white-space:pre-wrap; word-break:break-all; }
+</style>
+</head>
+<body class="min-h-screen">
+<div class="max-w-3xl mx-auto px-4 py-8">
+    <!-- Header -->
+    <div class="relative mb-8 fade-in">
+        <a href="/" class="absolute top-0 right-0 inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors">
+            <svg class="iconify-icon text-base"><use href="#login"/></svg>
+            登录
+        </a>
+        <div class="text-center">
+            <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-2xl mb-4">
+                <svg class="iconify-icon text-3xl text-blue-600"><use href="#folder_open_outline"/></svg>
+            </div>
+            <h1 class="text-2xl font-bold text-slate-800">公共共享</h1>
+            <p class="text-sm text-slate-500 mt-1">无需登录，直接浏览下载共享文件</p>
+        </div>
+    </div>
+
+    <!-- Upload area -->
+    <div id="upload-area" class="mb-4 fade-in">
+        <div class="flex items-center gap-2 flex-wrap">
+            <label for="file-input" class="inline-flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 hover:border-blue-500 hover:text-blue-600 text-slate-700 rounded-lg text-sm font-medium cursor-pointer transition-all shadow-sm">
+                <svg class="iconify-icon text-base"><use href="#cloud_upload_outline"/></svg>
+                选择文件
+            </label>
+            <input type="file" id="file-input" multiple class="hidden" onchange="onFilesSelected(this, false)"/>
+            <label for="folder-input" class="inline-flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 hover:border-indigo-500 hover:text-indigo-600 text-slate-700 rounded-lg text-sm font-medium cursor-pointer transition-all shadow-sm">
+                <svg class="iconify-icon text-base"><use href="#folder_upload_outline"/></svg>
+                选择目录
+            </label>
+            <input type="file" id="folder-input" webkitdirectory class="hidden" onchange="onFilesSelected(this, true)"/>
+            <button id="pub-btn-upload" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-bold transition-colors shadow-sm flex items-center gap-2 hidden" onclick="startPublicUpload()">
+                <svg class="iconify-icon text-base"><use href="#upload"/></svg>
+                开始上传
+            </button>
+            <button id="pub-btn-stop" class="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-bold transition-colors shadow-sm flex items-center gap-1 hidden" onclick="stopPublicUpload()">
+                <svg class="iconify-icon text-base"><use href="#stop"/></svg>
+                停止
+            </button>
+            <div id="upload-status-wrap" class="flex items-center gap-1 hidden">
+            <span id="upload-status" class="text-xs text-slate-400"></span>
+            <button id="pub-upload-clear-btn" class="text-slate-400 hover:text-red-500 transition-colors" title="清除已选文件">
+                <svg class="iconify-icon text-base"><use href="#close"/></svg>
+            </button>
+        </div>
+        </div>
+        <div id="upload-progress" class="mt-2 hidden">
+            <div class="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+                <div id="upload-bar" class="bg-blue-600 h-2 rounded-full transition-all duration-300" style="width:0%"></div>
+            </div>
+            <div class="text-xs text-slate-400 mt-1" id="upload-speed"></div>
+        </div>
+    </div>
+
+    <!-- Download progress -->
+    <div id="download-panel" class="mb-4 hidden fade-in">
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-sm font-medium text-slate-700 truncate max-w-[60%]" id="pub-dl-file">--</span>
+                <span class="text-sm text-slate-500" id="pub-dl-percent">0%</span>
+            </div>
+            <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                <div class="bg-green-500 h-full rounded-full transition-all duration-300" id="pub-dl-bar" style="width:0%"></div>
+            </div>
+            <div class="flex items-center justify-between mt-2">
+                <span class="text-xs text-slate-400" id="pub-dl-size">0 / ...</span>
+                <div class="flex items-center gap-2">
+                    <button class="text-xs text-blue-600 hover:text-blue-800 underline" id="pub-btn-dl-resume" onclick="pubResumeDownload()" style="display:none">继续</button>
+                    <button class="text-xs text-red-500 hover:text-red-700 underline" id="pub-btn-dl-cancel" onclick="pubCancelDownload()">取消</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Breadcrumb -->
+    <div class="flex items-center gap-2 text-sm mb-4 fade-in" id="breadcrumb">
+        <a href="javascript:void(0)" onclick="navigateTo('')" class="text-blue-600 hover:text-blue-700 font-medium">根目录</a>
+        <span id="breadcrumb-path" class="text-slate-400"></span>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="flex items-center justify-between mb-3">
+        <div class="text-xs text-slate-400" id="item-count"></div>
+        <div class="flex items-center gap-2">
+            <button id="pub-btn-sort-category" class="transition-colors text-xs" onclick="pubSetSortCategory()">按类别排序</button>
+            <span class="w-px h-3 bg-slate-300"></span>
+            <button id="pub-btn-sort-name" class="transition-colors text-xs text-blue-600 font-medium" onclick="pubSetSortName()">按名称排序 ↑</button>
+        </div>
+    </div>
+
+    <!-- 搜索栏 -->
+    <div class="flex items-center gap-3 mb-3" id="pub-search-bar">
+        <div class="relative flex-1">
+            <svg class="iconify-icon absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"><use href="#magnify"/></svg>
+            <input type="text" id="pub-search-input" placeholder="搜索文件..." 
+                   class="w-full pl-9 pr-9 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-blue-400 focus:bg-white transition-colors"
+                   oninput="pubOnSearchInput(this.value)" autocomplete="off">
+            <button id="pub-search-clear-btn" class="hidden absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 transition-colors" onclick="pubClearSearch()" title="清除搜索">
+                <svg class="iconify-icon text-xs"><use href="#close"/></svg>
+            </button>
+        </div>
+        <span id="pub-search-count" class="text-xs text-slate-400 whitespace-nowrap hidden"></span>
+    </div>
+
+    <!-- File list -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden fade-in">
+        <div id="file-list" class="divide-y divide-slate-100">
+            <div class="p-12 text-center text-slate-400">
+                <svg class="iconify-icon text-2xl animate-spin mb-2 inline-block"><use href="#loading"/></svg>
+                <p class="text-sm">加载中...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Empty state -->
+    <div id="empty-state" class="hidden text-center py-16 fade-in">
+        <svg class="iconify-icon text-5xl text-slate-300 mb-3 inline-block"><use href="#folder_open_outline"/></svg>
+        <p class="text-slate-500 text-sm">此文件夹为空</p>
+    </div>
+
+    <!-- Footer -->
+    <div class="text-center mt-8 text-xs text-slate-400">
+        Powered by LanFileShare
+    </div>
+</div>
+
+<!-- Toast -->
+<div class="fixed bottom-6 left-1/2 -translate-x-1/2 hidden" id="pub-toast" style="z-index:100001;">
+    <div class="bg-slate-800 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2">
+        <svg class="iconify-icon text-green-400 text-xl"><use href="#check_circle"/></svg>
+        <span id="pub-toast-msg" class="text-sm">已成功复制到剪贴板</span>
+    </div>
+</div>
+
+<!-- 图片查看器 -->
+<div class="fixed inset-0 z-50 hidden flex items-center justify-center" id="pub-modal-image-viewer">
+    <div class="absolute inset-0 bg-black/40" onclick="pubCloseImageViewer()"></div>
+    <div class="relative bg-gray-900 rounded-2xl shadow-2xl overflow-hidden" id="pub-image-viewer-panel" data-panel="pub-image" data-tx="0" data-ty="0" style="max-width:85vw;max-height:88vh;">
+        <div class="flex items-center justify-between px-4 py-2.5 select-none panel-drag-handle cursor-move" id="pub-image-viewer-header">
+            <span id="pub-image-viewer-title" class="text-white/80 text-sm font-medium truncate max-w-[30%]"></span>
+            <div class="flex items-center gap-1">
+                <button onclick="pubRotateImage(-90)" class="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition" title="逆时针旋转90°"><svg class="iconify-icon text-xl"><use href="#rotate_left"/></svg></button>
+                <button onclick="pubRotateImage(90)" class="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition" title="顺时针旋转90°"><svg class="iconify-icon text-xl"><use href="#rotate_right"/></svg></button>
+                <button onclick="pubZoomImage(-0.25)" class="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition" title="缩小"><svg class="iconify-icon text-xl"><use href="#magnify_minus_outline"/></svg></button>
+                <span id="pub-image-zoom-label" class="text-white/50 text-xs min-w-[40px] text-center">100%</span>
+                <button onclick="pubZoomImage(0.25)" class="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition" title="放大"><svg class="iconify-icon text-xl"><use href="#magnify_plus_outline"/></svg></button>
+                <button onclick="pubResetImageTransform()" class="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition" title="重置"><svg class="iconify-icon text-xl"><use href="#image_refresh_outline"/></svg></button>
+                <span class="w-px h-6 bg-white/20 mx-1"></span>
+                <button onclick="pubNavigateMedia(-1)" class="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition" title="上一张"><svg class="iconify-icon text-xl"><use href="#chevron_left"/></svg></button>
+                <button onclick="pubNavigateMedia(1)" class="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition" title="下一张"><svg class="iconify-icon text-xl"><use href="#chevron_right"/></svg></button>
+                <span class="w-px h-6 bg-white/20 mx-1"></span>
+                <button onclick="pubDownloadCurrentMedia()" class="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition" title="下载"><svg class="iconify-icon text-xl"><use href="#download"/></svg></button>
+                <button onclick="pubCloseImageViewer()" class="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition" title="关闭"><svg class="iconify-icon text-xl"><use href="#close"/></svg></button>
+            </div>
+        </div>
+        <div class="flex items-center justify-center p-2 min-h-0 overflow-hidden" id="pub-image-viewer-container" style="max-height:calc(88vh - 44px); position:relative;">
+            <img id="pub-image-viewer-img" class="rounded-lg select-none" src="" alt="" style="max-width:none;max-height:none;cursor:grab;transform-origin:center center;transition:transform 0.15s ease;" draggable="false" />
+            <!-- 左右导航按钮 -->
+            <button id="pub-image-prev-btn" onclick="pubNavigateMedia(-1)" class="image-nav-btn" style="position:absolute;top:50%;left:6px;transform:translateY(-50%);z-index:10001;background:rgba(0,0,0,0.7);color:#fff;border:none;border-radius:50%;width:52px;height:52px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background 0.2s,box-shadow 0.2s;box-shadow:0 2px 12px rgba(0,0,0,0.3);" title="上一张">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 6 9 12 15 18"></polyline></svg>
+            </button>
+            <button id="pub-image-next-btn" onclick="pubNavigateMedia(1)" class="image-nav-btn" style="position:absolute;top:50%;right:6px;transform:translateY(-50%);z-index:10001;background:rgba(0,0,0,0.7);color:#fff;border:none;border-radius:50%;width:52px;height:52px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background 0.2s,box-shadow 0.2s;box-shadow:0 2px 12px rgba(0,0,0,0.3);" title="下一张">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"></polyline></svg>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- 视频播放器 -->
+<div class="fixed inset-0 z-50 hidden flex items-center justify-center" id="pub-modal-video-player">
+    <div class="absolute inset-0 bg-black/40" onclick="pubCloseVideoPlayer()"></div>
+    <div class="relative bg-black rounded-2xl shadow-2xl overflow-hidden max-w-[45vw]" id="pub-video-player-panel" data-panel="pub-video" data-tx="0" data-ty="0">
+        <div class="flex items-center justify-between px-4 py-2.5 select-none panel-drag-handle cursor-move" id="pub-video-player-header">
+            <span id="pub-video-player-title" class="text-white/80 text-sm font-medium truncate"></span>
+            <div class="flex items-center gap-3">
+                <button onclick="pubDownloadCurrentMedia()" class="p-1.5 text-white/60 hover:text-white hover:bg-white/10 rounded-lg transition" title="下载"><svg class="iconify-icon text-lg"><use href="#download"/></svg></button>
+                <button onclick="pubCloseVideoPlayer()" class="p-1.5 text-white/60 hover:text-white hover:bg-white/10 rounded-lg transition" title="关闭"><svg class="iconify-icon text-lg"><use href="#close"/></svg></button>
+            </div>
+        </div>
+        <div class="relative group" id="pub-video-container">
+            <video id="pub-video-player-el" class="w-full block" autoplay playsinline style="max-height:38vh;"></video>
+            <!-- 视频底部控制条（hover 显示） -->
+            <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent pt-8 pb-2 px-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200" id="pub-video-controls-bar">
+                <input type="range" id="pub-video-seek-bar" class="w-full h-1 accent-blue-500 cursor-pointer mb-2" min="0" max="100" value="0" oninput="pubSeekVideo(this.value)" title="进度">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <button onclick="pubToggleVideoPlay()" id="pub-video-play-btn" class="p-1 text-white/80 hover:text-white transition" title="播放/暂停"><svg class="iconify-icon text-xl"><use href="#play"/></svg></button>
+                        <button onclick="pubToggleVideoMute()" id="pub-video-mute-btn" class="p-1 text-white/80 hover:text-white transition" title="静音"><svg class="iconify-icon text-xl"><use href="#volume_high"/></svg></button>
+                        <input type="range" id="pub-video-volume-bar" class="w-20 h-1 accent-blue-500 cursor-pointer" min="0" max="100" value="100" oninput="pubSetVideoVolume(this.value)" title="音量">
+                        <span id="pub-video-time-label" class="text-white/70 text-xs font-mono whitespace-nowrap ml-1">00:00 / 00:00</span>
+                    </div>
+                    <button onclick="pubToggleVideoFullscreen()" class="p-1 text-white/80 hover:text-white transition" title="全屏"><svg class="iconify-icon text-xl"><use href="#fullscreen"/></svg></button>
+                </div>
+            </div>
+            <!-- 音量浮层 -->
+            <div id="pub-video-volume-overlay" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-black/70 text-white px-4 py-2 rounded-xl text-sm font-mono hidden pointer-events-none z-10">🔊 100%</div>
+        </div>
+    </div>
+</div>
+
+<!-- 文档预览弹窗（PDF/Word/Excel/文本） -->
+<div class="fixed inset-0 z-50 hidden flex items-center justify-center" id="pub-modal-doc-viewer">
+    <div class="absolute inset-0 bg-black/40" onclick="pubCloseDocViewer()"></div>
+    <div class="relative bg-white rounded-2xl shadow-2xl overflow-hidden" id="pub-doc-viewer-panel" data-panel="pub-doc" data-tx="0" data-ty="0" style="max-width:90vw;max-height:88vh;min-width:60vw;">
+        <div class="flex items-center justify-between px-4 py-2.5 bg-slate-50 border-b border-slate-200 select-none panel-drag-handle cursor-move" id="pub-doc-viewer-header">
+            <span id="pub-doc-viewer-title" class="text-slate-700 text-sm font-medium truncate max-w-[60%]"></span>
+            <div class="flex items-center gap-1">
+                <span id="pub-doc-viewer-pages" class="text-xs text-slate-400 mr-2 hidden"></span>
+                <button onclick="pubDocPrevPage()" id="pub-doc-prev-btn" class="p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-200 rounded-lg transition hidden" title="上一页"><svg class="iconify-icon text-lg"><use href="#chevron_left"/></svg></button>
+                <button onclick="pubDocNextPage()" id="pub-doc-next-btn" class="p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-200 rounded-lg transition hidden" title="下一页"><svg class="iconify-icon text-lg"><use href="#chevron_right"/></svg></button>
+                <span class="w-px h-6 bg-slate-300 mx-1"></span>
+                <button onclick="pubDownloadCurrentDoc()" class="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition" title="下载"><svg class="iconify-icon text-lg"><use href="#download"/></svg></button>
+                <button onclick="pubCloseDocViewer()" class="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition" title="关闭"><svg class="iconify-icon text-lg"><use href="#close"/></svg></button>
+            </div>
+        </div>
+        <div id="pub-doc-preview-pdf" class="hidden" style="overflow:auto;max-height:calc(88vh - 44px);">
+            <canvas id="pub-doc-pdf-canvas" class="block mx-auto"></canvas>
+        </div>
+        <div id="pub-doc-preview-word" class="hidden">
+            <div id="pub-doc-preview-container"></div>
+        </div>
+        <div id="pub-doc-preview-excel" class="hidden">
+            <div id="pub-doc-preview-excel-tabs" style="display:none;flex-wrap:wrap;gap:2px;padding:0 0 8px 0;border-bottom:2px solid #e2e8f0;margin-bottom:8px;"></div>
+            <div id="pub-doc-preview-excel-wrap"></div>
+        </div>
+        <div id="pub-doc-preview-text" class="hidden"></div>
+        <div id="pub-doc-preview-loading" class="hidden flex items-center justify-center py-12">
+            <svg class="iconify-icon animate-spin text-3xl text-blue-500"><use href="#loading"/></svg>
+            <span class="ml-3 text-slate-500">加载中...</span>
+        </div>
+        <div id="pub-doc-preview-unsupported" class="hidden text-center py-12 text-slate-400">
+            <svg class="iconify-icon text-5xl mb-3 block mx-auto"><use href="#file_document_outline"/></svg>
+            <p id="pub-doc-preview-unsupported-msg">此文件格式暂不支持预览</p>
+            <p class="text-xs mt-1">请下载后使用本地应用打开</p>
+        </div>
+    </div>
+</div>
+
+<!-- 音频播放器（底部固定栏） -->
+<div id="pub-audio-player-bar" style="display:none;cursor:default;overflow-wrap:break-word;tab-size:4;-webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%;line-height:1.5;font-family:Open Sans,Arial,system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Noto Sans,Ubuntu,Cantarell,Helvetica Neue;font-size:14px;font-weight:400;box-sizing:border-box;z-index:50;color:#fff;background:#191b26;justify-content:space-between;align-items:center;gap:16px;max-width:800px;width:calc(100% - 32px);height:72px;padding:0 24px;position:fixed;bottom:16px;left:50%;transform:translateX(-50%);border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,0.4);">
+    <div style="display:flex;align-items:center;gap:12px;min-width:0;flex:1;">
+        <button onclick="pubAudioPlayerPrev()" id="pub-audio-prev-btn" style="background:none;border:none;color:#fff;cursor:pointer;padding:6px;flex-shrink:0;" title="上一首"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="19 20 9 12 19 4 19 20"/><line x1="5" y1="19" x2="5" y2="5"/></svg></button>
+        <button onclick="pubToggleAudioPlay()" id="pub-audio-play-btn" style="background:none;border:none;color:#fff;cursor:pointer;padding:6px;flex-shrink:0;" title="播放/暂停"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.14v14l11-7z"/></svg></button>
+        <button onclick="pubAudioPlayerNext()" id="pub-audio-next-btn" style="background:none;border:none;color:#fff;cursor:pointer;padding:6px;flex-shrink:0;" title="下一首"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg></button>
+        <div style="display:flex;flex-direction:column;min-width:0;flex:1;">
+            <span class="audio-title-wrap" style="font-size:14px;font-weight:500;"><span class="audio-title-inner" id="pub-audio-player-title">未选择音频</span></span>
+            <div style="display:flex;align-items:center;gap:10px;">
+                <span id="pub-audio-current-time" style="font-size:12px;color:#9ca3af;flex-shrink:0;">00:00</span>
+                <canvas id="pub-audio-wave-canvas" style="flex:1;height:32px;cursor:pointer;" title="点击跳转进度"></canvas>
+                <span id="pub-audio-duration-time" style="font-size:12px;color:#9ca3af;flex-shrink:0;">00:00</span>
+            </div>
+        </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;flex-shrink:0;">
+        <button onclick="pubToggleAudioMute()" id="pub-audio-mute-btn" style="background:none;border:none;color:#9ca3af;cursor:pointer;padding:4px;" title="静音"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.84-5 6.7v2.07c4-.91 7-4.49 7-8.77s-3-7.86-7-8.77M16.5 12c0-1.77-1-3.29-2.5-4.03V16c1.5-.71 2.5-2.24 2.5-4M3 9v6h4l5 5V4L7 9z"/></svg></button>
+        <input type="range" id="pub-audio-volume-bar" style="width:80px;height:4px;accent-color:#3b82f6;cursor:pointer;" min="0" max="100" value="80" oninput="pubSetAudioVolume(this.value)" title="音量">
+        <button onclick="pubCloseAudioPlayer()" style="background:none;border:none;color:#9ca3af;cursor:pointer;padding:4px;" title="关闭"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5L12 10.59L6.41 5L5 6.41L10.59 12L5 17.59L6.41 19L12 13.41L17.59 19L19 17.59L13.41 12z"/></svg></button>
+    </div>
+    <audio id="pub-audio-player-el" preload="auto" style="display:none;"></audio>
+</div>
+
+<script>
+let _currentPath = '';
+
+function logAction(action, detail) {
+    fetch('/api/log/action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, detail: detail || '' })
+    }).catch(() => {});
+}
+
+function showToast(msg) {
+    var toast = document.getElementById('pub-toast');
+    if (!toast) return;
+    document.getElementById('pub-toast-msg').innerText = msg;
+    toast.classList.remove('hidden');
+    clearTimeout(toast._timer);
+    toast._timer = setTimeout(function() { toast.classList.add('hidden'); }, 2500);
+}
+
+function filesAction(action, files) {
+    const arr = Array.from(files);
+    const count = arr.length;
+    const names = arr.map(f => "'" + f.name + "'").join('、');
+    return action + '（' + count + ' 个）' + names;
+}
+
+// 媒体文件类型判断
+function isImageFile(name) { return /\.(jpg|jpeg|png|gif|bmp|webp|svg|ico|tiff?)$/i.test(name); }
+// 浏览器原生 <video> 标签可直接播放的格式
+function isPlayableVideo(name) { return /\.(mp4|webm|ogv|ogg|mov)$/i.test(name); }
+// 所有视频格式（包括浏览器不支持的，仅用于分类排序）
+function isVideoFile(name) { return /\.(mp4|webm|ogv|ogg|mov|avi|mkv|flv|wmv|m4v|3gp|ts|rm|rmvb)$/i.test(name); }
+// 不可在线播放的视频格式（需下载）
+function isUnplayableVideo(name) { return isVideoFile(name) && !isPlayableVideo(name); }
+// 浏览器可直接播放的音频格式
+function isPlayableAudio(name) { return /\.(mp3|wav|ogg|flac|aac|m4a|opus|wma)$/i.test(name); }
+// 可预览的媒体文件（图片 + 可播放视频 + 可播放音频）
+function isMediaFile(name) { return isImageFile(name) || isPlayableVideo(name) || isPlayableAudio(name); }
+// 可预览的文档文件（PDF/Word/Excel/文本）
+function isDocFile(name) { return /\.(pdf|docx|xlsx|xls|txt|csv|md|json|xml|log|ini|cfg|yaml|yml|html?|css|js|ts|py|java|c|cpp|cs|go|rs|php|rb|sql|sh|bat|ps1)$/i.test(name); }
+function isPdfFile(name) { return /\.pdf$/i.test(name); }
+function isWordFile(name) { return /\.docx$/i.test(name); }
+function isExcelFile(name) { return /\.xlsx?$/i.test(name); }
+function isTextFile(name) { return /\.(txt|csv|md|json|xml|log|ini|cfg|yaml|yml|html?|css|js|ts|py|java|c|cpp|cs|go|rs|php|rb|sql|sh|bat|ps1)$/i.test(name); }
+
+
+
+// 获取文件类别排序权重
+function getCategoryOrder(file) {
+    if (file.isDirectory) return 0;
+    const name = file.name;
+    if (isImageFile(name)) return 1;
+    if (isVideoFile(name)) return 2;
+    if (/\.(mp3|wav|flac|aac|ogg|wma|m4a|opus)$/i.test(name)) return 3;
+    if (/\.(zip|rar|7z|tar|gz|bz2|xz|iso|cab)$/i.test(name)) return 4;
+    if (/\.(doc|docx|xls|xlsx|ppt|pptx|pdf|txt|csv|md|json|xml|html|htm|css|js|ts|py|java|c|cpp|cs|go|rs|php|rb|sql|yaml|yml|ini|cfg|log)$/i.test(name)) return 5;
+    return 6;
+}
+
+function getCategoryName(order) {
+    const names = ['文件夹', '图片', '视频', '音频', '压缩包', '文档/代码', '其他'];
+    return names[order] || '其他';
+}
+
+// 文件名截断：过长时隐藏中间部分，保留扩展名始终可见
+function truncateFileName(name, maxLen) {
+    if (name.length <= maxLen) return escHtml(name);
+    const dotIndex = name.lastIndexOf('.');
+    if (dotIndex <= 0) {
+        return escHtml(name.substring(0, maxLen - 1)) + '…';
+    }
+    const ext = name.substring(dotIndex);
+    const baseName = name.substring(0, dotIndex);
+    const baseMax = maxLen - ext.length - 1;
+    if (baseMax < 1) {
+        return escHtml(name.substring(0, maxLen - 1)) + '…';
+    }
+    return escHtml(baseName.substring(0, baseMax)) + '…' + escHtml(ext);
+}
+
+// 分类折叠状态
+let _collapsedCategories = new Set();
+
+let _allFiles = [];
+let _sortMode = 'name';
+let _sortAsc = true;
+let _pubMediaFiles = [];
+let _pubMediaIndex = -1;
+let _pubImageRotation = 0;
+let _pubImageScale = 1;
+let _pubImageTranslateX = 0;
+let _pubImageTranslateY = 0;
+let _pubIsDragging = false;
+let _pubDragStartX = 0;
+let _pubDragStartY = 0;
+let _pubDragOrigTranslateX = 0;
+let _pubDragOrigTranslateY = 0;
+// 搜索状态
+let _pubSearchQuery = '';
+let _pubSearchTimer = null;
+let _pubIsSearching = false;
+
+async function pubOnSearchInput(val) {
+    val = (val || '').trim();
+    var clearBtn = document.getElementById('pub-search-clear-btn');
+    clearBtn.classList.toggle('hidden', !val);
+    clearTimeout(_pubSearchTimer);
+    if (!val) {
+        _pubSearchQuery = '';
+        _pubIsSearching = false;
+        document.getElementById('pub-search-count').classList.add('hidden');
+        loadFiles(_currentPath);
+        return;
+    }
+    _pubSearchTimer = setTimeout(function() { pubDoSearch(val); }, 350);
+}
+
+async function pubDoSearch(q) {
+    _pubSearchQuery = q;
+    _pubIsSearching = true;
+    var countEl = document.getElementById('pub-search-count');
+    if (!q) { pubClearSearch(); return; }
+    try {
+        var res = await fetch('/api/public/files/search?q=' + encodeURIComponent(q));
+        var results = await res.json();
+        var hasError = results && results.error;
+        if (!Array.isArray(results)) results = [];
+        countEl.textContent = hasError ? '' : '找到 ' + results.length + ' 个结果';
+        countEl.classList.remove('hidden');
+        pubRenderSearchResults(results, hasError);
+    } catch (err) {
+        countEl.classList.add('hidden');
+        document.getElementById('file-list').innerHTML =
+            '<div class="p-12 text-center text-slate-400"><p class="text-sm">搜索失败: ' + escHtml(err.message) + '</p></div>';
+    }
+}
+
+function pubRenderSearchResults(results, hasError) {
+    var list = document.getElementById('file-list');
+    var empty = document.getElementById('empty-state');
+    var count = document.getElementById('item-count');
+    var breadcrumb = document.getElementById('breadcrumb');
+    if (breadcrumb) breadcrumb.style.display = 'none';
+
+    if (hasError) {
+        list.innerHTML = '<div class="p-8 text-center text-slate-400"><p class="text-sm">' + escHtml(results.error || '搜索出错') + '</p></div>';
+        list.classList.remove('hidden');
+        empty.classList.add('hidden');
+        count.textContent = '';
+        return;
+    }
+    if (!results || results.length === 0) {
+        list.classList.add('hidden');
+        empty.classList.remove('hidden');
+        empty.innerHTML = '<svg class="iconify-icon text-3xl text-slate-300 mb-2 inline-block"><use href="#magnify"/></svg><p class="text-slate-400 text-sm">未找到匹配的文件</p>';
+        count.textContent = '';
+        return;
+    }
+
+    list.classList.remove('hidden');
+    empty.classList.add('hidden');
+    count.textContent = results.length + ' 个结果';
+
+    var html = '';
+    results.forEach(function(f) {
+        var iconHtml = f.isDirectory
+            ? '<svg class="iconify-icon flex-shrink-0 text-yellow-500 text-xl"><use href="#folder"/></svg>'
+            : '<svg class="iconify-icon flex-shrink-0 ' + escHtml(f.iconColor || '') + '"><use href="#' + escHtml((f.icon || 'mdi:file').replace('mdi:', '').replace(/-/g, '_')) + '"/></svg>';
+        var sizeStr = f.sizeDisplay || (f.size >= 0 ? formatFileSize(f.size) : '--');
+        var locationHtml = f.parentPath ? '<span class="text-xs text-slate-400 ml-2">' + escHtml(f.parentPath) + '</span>' : '';
+
+        html += '<div class="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 cursor-pointer transition-colors border-b border-slate-50 last:border-0" onclick="' + 
+            (f.isDirectory ? "pubClearSearch();navigateTo('" + escAttr(f.path) + "')" : "downloadPublicFile('" + escAttr(f.path) + "', '" + escAttr(f.name) + "')") + '">' +
+            '<div class="flex items-center gap-3 flex-1 min-w-0">' + iconHtml +
+            '<div class="flex flex-col min-w-0"><span class="text-sm text-slate-700 font-medium truncate">' + escHtml(f.name) + '</span>' +
+            locationHtml + '</div></div>' +
+            '<span class="text-xs text-slate-400 flex-shrink-0 hidden sm:block">' + escHtml(sizeStr) + '</span></div>';
+    });
+    list.innerHTML = html;
+}
+
+function pubClearSearch() {
+    _pubSearchQuery = '';
+    _pubIsSearching = false;
+    document.getElementById('pub-search-input').value = '';
+    document.getElementById('pub-search-clear-btn').classList.add('hidden');
+    document.getElementById('pub-search-count').classList.add('hidden');
+    var breadcrumb = document.getElementById('breadcrumb');
+    if (breadcrumb) breadcrumb.style.display = '';
+    loadFiles(_currentPath);
+}
+
+async function loadFiles(path) {
+    _currentPath = path || '';
+    try {
+        const res = await fetch('/api/public/files?path=' + encodeURIComponent(_currentPath));
+        if (!res.ok) {
+            const errText = await res.text();
+            throw new Error(errText || ('HTTP ' + res.status));
+        }
+        const data = await res.json();
+        // 确保返回的是数组，防止非数组数据导致渲染卡死
+        if (!Array.isArray(data)) {
+            throw new Error(data.error || '服务器返回了异常数据');
+        }
+        _allFiles = data;
+        renderFileList(data);
+        renderBreadcrumb(_currentPath);
+        updateUploadAreaVisibility();
+    } catch (err) {
+        document.getElementById('file-list').innerHTML =
+            '<div class="p-12 text-center text-red-400"><p class="text-sm">加载失败: ' + escHtml(err.message || '请刷新重试') + '</p></div>';
+    }
+}
+
+function updateUploadAreaVisibility() {
+    var uploadArea = document.getElementById('upload-area');
+    if (!uploadArea) return;
+    // 根目录不允许上传，隐藏上传区域
+    if (!_currentPath || _currentPath === '') {
+        uploadArea.classList.add('hidden');
+    } else {
+        uploadArea.classList.remove('hidden');
+    }
+}
+
+function renderBreadcrumb(path) {
+    const el = document.getElementById('breadcrumb-path');
+    const breadcrumb = document.getElementById('breadcrumb');
+    if (!breadcrumb) return;
+
+    if (!path) {
+        // 根目录：隐藏面包屑，只显示"根目录"
+        el.innerHTML = '';
+        breadcrumb.querySelector('a').textContent = '根目录';
+        return;
+    }
+
+    const parts = path.split('/').filter(Boolean);
+    let html = '';
+    let accumulated = '';
+    parts.forEach((p, i) => {
+        accumulated += '/' + p;
+        html += '<span class="text-slate-300 mx-1">/</span>';
+        if (i < parts.length - 1) {
+            html += '<a href="javascript:void(0)" onclick="navigateTo(\'' + escAttr(accumulated.substring(1)) + '\')" class="text-blue-600 hover:text-blue-700 font-medium">' + escHtml(p) + '</a>';
+        } else {
+            html += '<span class="text-slate-600 font-medium">' + escHtml(p) + '</span>';
+        }
+    });
+    el.innerHTML = html;
+    // 更新"根目录"链接导航
+    breadcrumb.querySelector('a').onclick = function() { navigateTo(''); };
+}
+
+function renderFileList(files) {
+    const list = document.getElementById('file-list');
+    const empty = document.getElementById('empty-state');
+    const count = document.getElementById('item-count');
+
+    if (!files || files.length === 0) {
+        list.innerHTML = '';
+        empty.classList.remove('hidden');
+        count.textContent = '';
+        list.classList.add('hidden');
+        return;
+    }
+
+    list.classList.remove('hidden');
+    empty.classList.add('hidden');
+    count.textContent = files.length + ' 个项目';
+
+    // 排序
+    const sorted = [...files];
+    sorted.sort((a, b) => {
+        if (_sortMode === 'category') {
+            const catA = getCategoryOrder(a);
+            const catB = getCategoryOrder(b);
+            if (catA !== catB) return catA - catB;
+        } else {
+            if (a.isDirectory !== b.isDirectory) return a.isDirectory ? -1 : 1;
+        }
+        const cmp = a.name.localeCompare(b.name, 'zh-Hans-CN', { sensitivity: 'base' });
+        return _sortAsc ? cmp : -cmp;
+    });
+
+    let lastCategory = -1;
+    let currentCatCollapsed = false;
+    let html = '';
+    sorted.forEach(f => {
+        // 类别分组标题
+        let catHeader = '';
+        if (_sortMode === 'category') {
+            const cat = getCategoryOrder(f);
+            if (cat !== lastCategory) {
+                lastCategory = cat;
+                const isCollapsed = _collapsedCategories.has(cat);
+                currentCatCollapsed = isCollapsed;
+                const catIcons = ['📁', '🖼️', '🎬', '🎵', '📦', '📄', '📎'];
+                const arrow = isCollapsed ? '▶' : '▼';
+                catHeader = '<div class="file-row flex items-center gap-3 px-4 py-2 bg-slate-100/80 text-xs font-semibold text-slate-500 uppercase tracking-wider cursor-pointer hover:bg-slate-200/80 transition-colors select-none" data-category-toggle="' + cat + '">' +
+                    arrow + ' ' + (catIcons[cat] || '📎') + ' ' + getCategoryName(cat) + '</div>';
+            }
+        }
+        const icon = f.isDirectory
+            ? '<svg class="iconify-icon text-amber-500 text-xl shrink-0"><use href="#folder"/></svg>'
+            : fileIcon(f.name);
+        const relPath = f.path || '';
+        const isMedia = !f.isDirectory && isMediaFile(f.name);
+        const isDoc = !f.isDirectory && !isMedia && isDocFile(f.name);
+        const isUnplayableVid = !f.isDirectory && isUnplayableVideo(f.name);
+        const canPreview = isMedia || isDoc;
+        const displayName = truncateFileName(f.name, 28);
+        const nameHtml = f.isDirectory
+            ? '<a href="javascript:void(0)" onclick="navigateTo(\'' + encodePath(relPath) + '\')" class="text-blue-600 hover:text-blue-700 font-medium truncate" title="' + escAttr(f.name) + '">' + displayName + '</a>'
+            : (canPreview
+                ? '<a href="javascript:void(0)" onclick="' + (isMedia ? 'pubOpenMediaPreview' : 'pubOpenDocPreview') + '(\'' + encodePath(relPath) + '\')" class="text-slate-700 hover:text-blue-600 font-medium truncate" title="' + escAttr(f.name) + '">' + displayName + '</a>'
+                : '<span class="text-slate-700 font-medium truncate" title="' + escAttr(f.name) + '">' + displayName + (isUnplayableVid ? ' <span class="text-xs text-amber-500 font-normal">(需下载)</span>' : '') + '</span>');
+        const actionHtml = f.isDirectory
+            ? '<span class="text-xs text-slate-400">目录</span>'
+            : ('<div class="flex items-center gap-1">' +
+                (canPreview ? '<button onclick="event.stopPropagation();' + (isMedia ? 'pubOpenMediaPreview' : 'pubOpenDocPreview') + '(\'' + encodePath(relPath) + '\')" class="flex items-center gap-1 px-2 py-1.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-lg text-xs font-medium transition-colors" title="预览"><svg class="iconify-icon text-sm"><use href="#eye_outline"/></svg></button>' : '') +
+                '<button onclick="downloadPublicFile(\'' + encodePath(relPath) + '\', \'' + escAttr(f.name) + '\')" class="flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg text-xs font-medium transition-colors"><svg class="iconify-icon text-sm"><use href="#download"/></svg>下载</button>' +
+                '</div>');
+        const sizeHtml = f.isDirectory ? '' : '<span class="text-xs text-slate-400 shrink-0">' + formatFileSize(f.size) + '</span>';
+        const rowStyle = (_sortMode === 'category' && currentCatCollapsed) ? ' style="display:none"' : '';
+        const rowCatAttr = _sortMode === 'category' ? ' data-cat="' + lastCategory + '"' : '';
+
+        html += catHeader + '<div class="file-row flex items-center gap-3 px-4 py-3 transition-colors"' + rowCatAttr + rowStyle + '>' +
+            '<div class="shrink-0">' + icon + '</div>' +
+            '<div class="flex-1 min-w-0">' + nameHtml + '</div>' +
+            '<div class="shrink-0">' + sizeHtml + '</div>' +
+            '<div class="shrink-0">' + actionHtml + '</div>' +
+            '</div>';
+    });
+    list.innerHTML = html;
+}
+
+function fileIcon(name) {
+    const ext = (name.split('.').pop() || '').toLowerCase();
+    const icons = {
+        pdf: 'mdi:file-pdf-box', doc: 'mdi:file-word', docx: 'mdi:file-word',
+        xls: 'mdi:file-excel', xlsx: 'mdi:file-excel', ppt: 'mdi:file-powerpoint', pptx: 'mdi:file-powerpoint',
+        jpg: 'mdi:file-image', jpeg: 'mdi:file-image', png: 'mdi:file-image', gif: 'mdi:file-image',
+        svg: 'mdi:file-image', webp: 'mdi:file-image', bmp: 'mdi:file-image',
+        mp4: 'mdi:file-video', avi: 'mdi:file-video', mkv: 'mdi:file-video', mov: 'mdi:file-video',
+        mp3: 'mdi:file-music', wav: 'mdi:file-music', flac: 'mdi:file-music',
+        zip: 'mdi:folder-zip', rar: 'mdi:folder-zip', '7z': 'mdi:folder-zip',
+        txt: 'mdi:file-document', md: 'mdi:file-document', json: 'mdi:code-json',
+        js: 'mdi:language-javascript', ts: 'mdi:language-typescript', py: 'mdi:language-python',
+        html: 'mdi:language-html5', css: 'mdi:language-css3'
+    };
+    const icon = icons[ext] || 'mdi:file';
+    const colors = {
+        pdf: 'text-red-500', doc: 'text-blue-500', docx: 'text-blue-500',
+        xls: 'text-green-600', xlsx: 'text-green-600', ppt: 'text-orange-500', pptx: 'text-orange-500',
+        jpg: 'text-pink-500', jpeg: 'text-pink-500', png: 'text-pink-500', gif: 'text-pink-500',
+        mp4: 'text-purple-500', mp3: 'text-indigo-500',
+        zip: 'text-yellow-600', rar: 'text-yellow-600', '7z': 'text-yellow-600',
+        txt: 'text-slate-500', md: 'text-slate-500', json: 'text-amber-500',
+        js: 'text-yellow-500', ts: 'text-blue-400', py: 'text-blue-500',
+        html: 'text-orange-600', css: 'text-sky-500'
+    };
+    return '<svg class="iconify-icon text-xl shrink-0 ' + (colors[ext] || 'text-slate-400') + '"><use href="#' + icon.replace('mdi:','').replace(/-/g,'_') + '"/></svg>';
+}
+
+function navigateTo(path) {
+    logAction('浏览公共共享目录', path || '根目录');
+    loadFiles(path);
+}
+
+function pubSetSortCategory() {
+    _sortMode = 'category';
+    // 按类别排序时，默认折叠所有分类
+    _collapsedCategories = new Set([0, 1, 2, 3, 4, 5, 6]);
+    pubUpdateSortButtons();
+    renderFileList(_allFiles);
+}
+
+function pubSetSortName() {
+    _sortMode = 'name';
+    _sortAsc = !_sortAsc;
+    pubUpdateSortButtons();
+    renderFileList(_allFiles);
+}
+
+function pubUpdateSortButtons() {
+    const catBtn = document.getElementById('pub-btn-sort-category');
+    const nameBtn = document.getElementById('pub-btn-sort-name');
+    if (_sortMode === 'category') {
+        catBtn.className = 'transition-colors text-xs text-blue-600 font-medium';
+        nameBtn.className = 'transition-colors text-xs text-slate-400 hover:text-blue-600';
+    } else {
+        catBtn.className = 'transition-colors text-xs text-slate-400 hover:text-blue-600';
+        nameBtn.className = 'transition-colors text-xs text-blue-600 font-medium';
+        nameBtn.innerText = _sortAsc ? '按名称排序 ↑' : '按名称排序 ↓';
+    }
+}
+
+function pubToggleCategory(cat) {
+    if (_collapsedCategories.has(cat)) {
+        _collapsedCategories.delete(cat);
+    } else {
+        _collapsedCategories.add(cat);
+    }
+    renderFileList(_allFiles);
+}
+
+// 事件委托：类别标题点击折叠/展开
+document.getElementById('file-list').addEventListener('click', function(e) {
+    const catToggle = e.target.closest('[data-category-toggle]');
+    if (catToggle) {
+        const cat = parseInt(catToggle.getAttribute('data-category-toggle'));
+        pubToggleCategory(cat);
+    }
+});
+
+function encodePath(p) {
+    return (p || '').replace(/\\/g, '/');
+}
+
+function formatFileSize(bytes) {
+    if (!bytes || bytes === 0) return '0 B';
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    let i = 0;
+    let len = bytes;
+    while (len >= 1024 && i < sizes.length - 1) { i++; len /= 1024; }
+    return len.toFixed(i === 0 ? 0 : 1) + ' ' + sizes[i];
+}
+
+function escHtml(s) {
+    return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function escAttr(s) {
+    return (s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// ========== 公共页下载管理（支持断点续传） ==========
+const PUB_DL_STATE_KEY = 'lanfs_pub_dl_states';
+let _pubDlAbortController = null;
+let _pubDlCurrentPath = '';
+let _pubDlChunks = [];
+let _pubDlReceivedBytes = 0;
+let _pubDlTotalBytes = 0;
+let _pubDlLastBytes = 0;
+let _pubDlLastTime = 0;
+
+function getPubDlStates() {
+    try { return JSON.parse(localStorage.getItem(PUB_DL_STATE_KEY) || '{}'); } catch (_) { return {}; }
+}
+
+function savePubDlState(path, state) {
+    const states = getPubDlStates();
+    if (state === null) { delete states[path]; } else { states[path] = state; }
+    localStorage.setItem(PUB_DL_STATE_KEY, JSON.stringify(states));
+}
+
+function showPubDownloadPanel(fileName) {
+    document.getElementById('download-panel').classList.remove('hidden');
+    document.getElementById('pub-dl-file').innerText = fileName;
+    document.getElementById('pub-dl-percent').innerText = '0%';
+    document.getElementById('pub-dl-bar').style.width = '0%';
+    document.getElementById('pub-dl-size').innerText = '0 / ...';
+    document.getElementById('pub-btn-dl-resume').style.display = 'none';
+    document.getElementById('pub-btn-dl-cancel').style.display = '';
+}
+
+function hidePubDownloadPanel() {
+    document.getElementById('download-panel').classList.add('hidden');
+}
+
+function updatePubDlProgress(received, total) {
+    if (total > 0) {
+        const pct = Math.round(received / total * 100);
+        document.getElementById('pub-dl-percent').innerText = pct + '%';
+        document.getElementById('pub-dl-bar').style.width = pct + '%';
+    }
+    document.getElementById('pub-dl-size').innerText = formatFileSize(received) + ' / ' + (total > 0 ? formatFileSize(total) : '...');
+    const now = Date.now();
+    const elapsed = (now - _pubDlLastTime) / 1000;
+    if (elapsed >= 0.5 && _pubDlLastTime > 0) {
+        const speed = (received - _pubDlLastBytes) / elapsed;
+        // show speed in size text
+        const speedText = speed < 1024 ? (speed.toFixed(1) + ' B/s') :
+            speed < 1024 * 1024 ? ((speed / 1024).toFixed(1) + ' KB/s') :
+            ((speed / (1024 * 1024)).toFixed(1) + ' MB/s');
+        _pubDlLastBytes = received;
+        _pubDlLastTime = now;
+    }
+}
+
+function pubCancelDownload() {
+    if (_pubDlAbortController) { logAction('取消下载', _pubDlCurrentPath); _pubDlAbortController.abort(); }
+}
+
+function pubResumeDownload() {
+    if (_pubDlCurrentPath) {
+        logAction('继续下载', _pubDlCurrentPath);
+        if (_pubDlAbortController) _pubDlAbortController.abort();
+        downloadPublicFile(_pubDlCurrentPath, _pubDlCurrentPath.split('/').pop());
+    }
+}
+
+async function downloadPublicFile(path, fileName) {
+    logAction('下载公共共享文件', fileName);
+    const url = '/api/public/files/download?path=' + encodeURIComponent(path);
+
+    if (_pubDlAbortController) {
+        if (!confirm('已有下载任务进行中，是否取消并开始新下载？')) return;
+        pubCancelDownload();
+    }
+
+    _pubDlAbortController = new AbortController();
+    _pubDlCurrentPath = path;
+    _pubDlChunks = [];
+    _pubDlReceivedBytes = 0;
+    _pubDlTotalBytes = 0;
+    _pubDlLastBytes = 0;
+    _pubDlLastTime = Date.now();
+
+    showPubDownloadPanel(fileName);
+
+    // 检查断点续传状态
+    const savedStates = getPubDlStates();
+    const savedState = savedStates[path];
+    let resumeFrom = 0;
+    if (savedState && savedState.received > 0 && savedState.total > 0 && savedState.received < savedState.total) {
+        resumeFrom = savedState.received;
+    }
+
+    try {
+        // 获取文件大小
+        let total = 0;
+        try {
+            const headResp = await fetch(url, { method: 'HEAD', signal: _pubDlAbortController.signal });
+            total = parseInt(headResp.headers.get('Content-Length') || '0');
+        } catch (_) {}
+
+        _pubDlTotalBytes = total;
+
+        const fetchHeaders = {};
+        if (resumeFrom > 0 && total > 0) {
+            fetchHeaders['Range'] = 'bytes=' + resumeFrom + '-';
+        }
+
+        const resp = await fetch(url, {
+            headers: fetchHeaders,
+            signal: _pubDlAbortController.signal
+        });
+
+        if (!resp.ok && resp.status !== 206) {
+            throw new Error('下载失败: HTTP ' + resp.status);
+        }
+
+        if (resp.status === 206) {
+            const cr = resp.headers.get('Content-Range');
+            if (cr) { const m = cr.match(/bytes \d+-\d+\/(\d+)/); if (m) total = parseInt(m[1]); _pubDlTotalBytes = total; }
+        }
+        if (total === 0 && resp.headers.get('Content-Length')) {
+            total = parseInt(resp.headers.get('Content-Length') || '0');
+            _pubDlTotalBytes = total;
+        }
+
+        _pubDlReceivedBytes = resumeFrom;
+        updatePubDlProgress(_pubDlReceivedBytes, total);
+
+        const reader = resp.body.getReader();
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            _pubDlChunks.push(value);
+            _pubDlReceivedBytes += value.length;
+            updatePubDlProgress(_pubDlReceivedBytes, total || _pubDlReceivedBytes);
+
+            savePubDlState(path, {
+                received: _pubDlReceivedBytes,
+                total: total || _pubDlReceivedBytes,
+                fileName: fileName,
+                time: Date.now()
+            });
+        }
+
+        const mimeType = resp.headers.get('Content-Type') || 'application/octet-stream';
+        const blob = new Blob(_pubDlChunks, { type: mimeType });
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+
+        savePubDlState(path, null);
+        document.getElementById('pub-dl-size').innerText = '✅ 下载完成';
+        logAction('下载完成', fileName);
+        setTimeout(hidePubDownloadPanel, 2000);
+
+    } catch (err) {
+        if (err.name === 'AbortError') {
+            if (_pubDlReceivedBytes > 0) {
+                savePubDlState(path, {
+                    received: _pubDlReceivedBytes,
+                    total: _pubDlTotalBytes || _pubDlReceivedBytes,
+                    fileName: fileName,
+                    time: Date.now()
+                });
+                document.getElementById('pub-dl-size').innerText = '⏸ 已暂停 (' + formatFileSize(_pubDlReceivedBytes) + ')';
+                document.getElementById('pub-btn-dl-resume').style.display = '';
+                document.getElementById('pub-btn-dl-cancel').style.display = 'none';
+            } else {
+                savePubDlState(path, null);
+                hidePubDownloadPanel();
+            }
+        } else {
+            if (_pubDlReceivedBytes > 0) {
+                savePubDlState(path, {
+                    received: _pubDlReceivedBytes,
+                    total: _pubDlTotalBytes || _pubDlReceivedBytes,
+                    fileName: fileName,
+                    time: Date.now()
+                });
+                document.getElementById('pub-dl-size').innerText = '⚠ 已中断 (' + formatFileSize(_pubDlReceivedBytes) + ')';
+                document.getElementById('pub-btn-dl-resume').style.display = '';
+                document.getElementById('pub-btn-dl-cancel').style.display = 'none';
+            } else {
+                savePubDlState(path, null);
+                hidePubDownloadPanel();
+            }
+        }
+    } finally {
+        _pubDlAbortController = null;
+    }
+}
+
+// Upload
+let _pubUpAbortController = null;
+let _pubCurrentUploadId = null;
+let _pubUploadStartTime = 0;
+let _pubUploadLastBytes = 0;
+let _pubUploadLastTime = 0;
+let _pubPendingFiles = null;   // { files: File[], isFolder: boolean }
+let _pubTotalUploadSize = 0;
+
+function stopPublicUpload() {
+    if (_pubUpAbortController) {
+        _pubUpAbortController.abort();
+        _pubUpAbortController = null;
+        logAction('停止上传');
+    }
+}
+
+function onFilesSelected(input, isFolder) {
+    const files = input.files;
+    if (!files || files.length === 0) return;
+
+    // 关键：在清空 input 之前，把每个 File 对象深拷贝到数组中保存
+    // input.value='' 会导致 input.files 被清空，直接保存引用会丢失数据
+    const fileArray = [];
+    for (let i = 0; i < files.length; i++) {
+        fileArray.push(files[i]);
+    }
+    _pubPendingFiles = { files: fileArray, isFolder };
+    logAction(filesAction(isFolder ? '选择文件夹上传' : '选择文件上传', files), '');
+
+    function clearPubUploadSelection() {
+    _pubPendingFiles = null;
+    document.getElementById('file-input').value = '';
+    document.getElementById('folder-input').value = '';
+    document.getElementById('upload-status-wrap').classList.add('hidden');
+    document.getElementById('pub-btn-upload').classList.add('hidden');
+}
+document.getElementById('pub-upload-clear-btn').addEventListener('click', clearPubUploadSelection);
+
+    // 计算总大小
+    let totalSize = 0;
+    for (const f of fileArray) totalSize += f.size;
+    _pubTotalUploadSize = totalSize;
+
+    // 显示文件选择状态和开始上传按钮
+    const statusWrap = document.getElementById('upload-status-wrap');
+    const statusEl = document.getElementById('upload-status');
+    const firstSize = formatFileSize(fileArray[0].size);
+    const totalSizeStr = formatFileSize(totalSize);
+    const firstName = fileArray.length > 1
+        ? fileArray[0].name + ' 等 ' + fileArray.length + ' 个文件'
+        : fileArray[0].name;
+    statusEl.textContent = '已选择 ' + firstName + ' (' + firstSize + ')，总计 ' + totalSizeStr;
+    statusWrap.classList.remove('hidden');
+    statusWrap.classList.remove('text-red-500');
+    document.getElementById('pub-btn-upload').classList.remove('hidden');
+    document.getElementById('pub-btn-stop').classList.add('hidden');
+    document.getElementById('upload-progress').classList.add('hidden');
+
+    input.value = '';
+}
+
+function startPublicUpload() {
+    if (!_pubPendingFiles) return;
+    const { files, isFolder } = _pubPendingFiles;
+    _pubPendingFiles = null;
+    
+    // 隐藏开始按钮，显示停止按钮
+    document.getElementById('pub-btn-upload').classList.add('hidden');
+    document.getElementById('pub-btn-stop').classList.remove('hidden');
+    
+    logAction(filesAction('开始上传', files), '');
+    uploadFilesChunked(files, _currentPath, isFolder);
+}
+
+async function handleUpload(input, isFolder) {
+    const files = input.files;
+    if (!files || files.length === 0) return;
+    logAction(filesAction(isFolder ? '选择文件夹上传' : '选择文件上传', files), '');
+    uploadFilesChunked(files, _currentPath, isFolder);
+    input.value = '';
+}
+
+function showUploadError(msg) {
+    const statusEl = document.getElementById('upload-status');
+    statusEl.textContent = msg;
+    statusEl.classList.remove('hidden');
+    statusEl.classList.add('text-red-500');
+    setTimeout(() => {
+        statusEl.classList.add('hidden');
+        statusEl.classList.remove('text-red-500');
+    }, 3000);
+}
+
+async function uploadFilesChunked(files, targetPath, isFolder) {
+    const statusEl = document.getElementById('upload-status');
+    const progressEl = document.getElementById('upload-progress');
+    const barEl = document.getElementById('upload-bar');
+    const speedEl = document.getElementById('upload-speed');
+    const stopBtn = document.getElementById('pub-btn-stop');
+    const uploadBtn = document.getElementById('pub-btn-upload');
+
+    // 构建文件列表（文件夹上传时保持相对路径）
+    let fileList = [];
+    if (isFolder && files.length > 0) {
+        const firstPath = files[0].webkitRelativePath || '';
+        const folderName = firstPath.split('/')[0] || '';
+        const basePath = targetPath ? targetPath + '/' + folderName : folderName;
+        for (const f of files) {
+            const relPath = f.webkitRelativePath.substring(folderName.length + 1);
+            fileList.push({ file: f, fileName: relPath, subPath: basePath });
+        }
+    } else {
+        for (const f of files) {
+            fileList.push({ file: f, fileName: f.name, subPath: targetPath || '' });
+        }
+    }
+
+    const totalSize = fileList.reduce((s, x) => s + x.file.size, 0);
+    statusEl.textContent = `上传中... 0/${fileList.length}`;
+    statusEl.classList.remove('hidden');
+    statusEl.classList.remove('text-red-500');
+    progressEl.classList.remove('hidden');
+    barEl.style.width = '0%';
+    speedEl.textContent = '';
+    uploadBtn.classList.add('hidden');
+    stopBtn.classList.remove('hidden');
+
+    _pubUpAbortController = new AbortController();
+    _pubUploadStartTime = Date.now();
+    _pubUploadLastBytes = 0;
+    _pubUploadLastTime = _pubUploadStartTime;
+    let totalUploaded = 0;
+    const uploadedList = [];
+
+    for (let fi = 0; fi < fileList.length; fi++) {
+        const { file, fileName, subPath } = fileList[fi];
+
+        try {
+            statusEl.textContent = '正在校验文件：' + fileName;
+            const contentHash = await fingerprintUploadFile(file, _pubUpAbortController.signal);
+            // 1. 初始化上传会话
+            const initResp = await fetch('/api/public/chunked/init', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                signal: _pubUpAbortController.signal,
+                body: JSON.stringify({ fileName, fileSize: file.size, subPath, contentHash })
+            });
+            if (!initResp.ok) {
+                const errText = await initResp.text();
+                throw new Error(errText || '初始化失败');
+            }
+            const initData = await initResp.json();
+            const { uploadId, chunkSize, uploadedBytes, fileExists } = initData;
+            _pubCurrentUploadId = uploadId;
+
+            // 检查是否同名文件已存在，需要用户确认是否覆盖
+            if (fileExists) {
+                const confirmOverride = await new Promise(resolve => {
+                    const confirmed = window.confirm('文件 "' + fileName + '" 已存在，确定要覆盖吗？');
+                    resolve(confirmed);
+                });
+                if (!confirmOverride) {
+                    showPubToast('已跳过文件: ' + fileName);
+                    await fetch('/api/public/chunked/cancel?uploadId=' + encodeURIComponent(uploadId), { method: 'DELETE' });
+                    continue;
+                }
+            }
+
+            // 2. 分块上传（支持断点续传）
+            let offset = uploadedBytes || 0;
+            totalUploaded += offset;
+
+            while (offset < file.size) {
+                const end = Math.min(offset + chunkSize, file.size);
+                const blob = file.slice(offset, end);
+                const writeResp = await fetch('/api/public/chunked/write?uploadId=' + encodeURIComponent(uploadId) + '&offset=' + offset, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/octet-stream' },
+                    signal: _pubUpAbortController.signal,
+                    body: blob
+                });
+                if (!writeResp.ok) {
+                    const errText = await writeResp.text();
+                    throw new Error(errText || '写入分块失败');
+                }
+                const writeData = await writeResp.json();
+                const newUploaded = writeData.uploadedBytes || end;
+                const chunkBytes = newUploaded - offset;
+                offset = newUploaded;
+                totalUploaded += chunkBytes;
+
+                // 更新进度
+                const pct = totalSize > 0 ? Math.round(totalUploaded / totalSize * 100) : 0;
+                barEl.style.width = pct + '%';
+                const completedFiles = uploadedList.length + (offset >= file.size ? 1 : 0);
+                statusEl.textContent = `上传中... ${completedFiles}/${fileList.length} (${pct}%)`;
+
+                const now = Date.now();
+                const elapsed = (now - _pubUploadLastTime) / 1000;
+                if (elapsed >= 0.5 && _pubUploadLastTime > 0) {
+                    const speed = (totalUploaded - _pubUploadLastBytes) / elapsed;
+                    speedEl.textContent = formatPubSpeed(speed) + ' · ' + formatFileSize(totalUploaded) + ' / ' + formatFileSize(totalSize);
+                    _pubUploadLastBytes = totalUploaded;
+                    _pubUploadLastTime = now;
+                }
+            }
+
+            // 3. 完成上传
+            const compResp = await fetch('/api/public/chunked/complete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                signal: _pubUpAbortController.signal,
+                body: JSON.stringify({ uploadId, overwrite: fileExists })
+            });
+            if (!compResp.ok) {
+                const errText = await compResp.text();
+                throw new Error(errText || '完成上传失败');
+            }
+            uploadedList.push(fileName);
+        } catch (e) {
+            if (e.name === 'AbortError') {
+                // 取消时清理会话
+                if (_pubCurrentUploadId) {
+                    try {
+                        await fetch('/api/public/chunked/cancel?uploadId=' + encodeURIComponent(_pubCurrentUploadId), { method: 'DELETE' });
+                    } catch (_) {}
+                }
+                statusEl.textContent = '上传已停止';
+                stopBtn.classList.add('hidden');
+                uploadBtn.classList.add('hidden');
+                setTimeout(() => {
+                    statusEl.classList.add('hidden');
+                    progressEl.classList.add('hidden');
+                    speedEl.textContent = '';
+                }, 2000);
+                _pubUpAbortController = null;
+                return;
+            }
+            showUploadError('上传失败: ' + e.message);
+            logAction('上传失败', e.message);
+            stopBtn.classList.add('hidden');
+            uploadBtn.classList.add('hidden');
+            _pubUpAbortController = null;
+            return;
+        }
+    }
+
+    statusEl.textContent = `上传完成 ${uploadedList.length}/${fileList.length} 个文件`;
+    logAction('上传完成', uploadedList.length + '/' + fileList.length + ' 个文件');
+    barEl.style.width = '100%';
+    speedEl.textContent = '';
+    stopBtn.classList.add('hidden');
+    uploadBtn.classList.add('hidden');
+    setTimeout(() => {
+        statusEl.classList.add('hidden');
+        progressEl.classList.add('hidden');
+    }, 3000);
+    loadFiles(_currentPath);
+
+    _pubUpAbortController = null;
+}
+
+function formatPubSize(bytes) {
+    if (bytes === 0) return '0 B';
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return (bytes / Math.pow(1024, i)).toFixed(i > 0 ? 1 : 0) + ' ' + sizes[i];
+}
+
+function formatPubSpeed(bytesPerSec) {
+    if (bytesPerSec < 1024) return bytesPerSec.toFixed(0) + ' B/s';
+    if (bytesPerSec < 1048576) return (bytesPerSec / 1024).toFixed(1) + ' KB/s';
+    if (bytesPerSec < 1073741824) return (bytesPerSec / 1048576).toFixed(1) + ' MB/s';
+    return (bytesPerSec / 1073741824).toFixed(2) + ' GB/s';
+}
+
+// ========== 媒体预览 ==========
+
+function pubOpenMediaPreview(filePath) {
+    if (!filePath) return;
+    const clickedFile = _allFiles.find(f => f.path === filePath);
+    if (!clickedFile) return;
+    // 不可在线播放的视频格式，直接下载（TS 由 hls.js 支持，不在此列）
+    if (isUnplayableVideo(clickedFile.name)) {
+        logAction('下载不可播放视频', clickedFile.name);
+        downloadPublicFile(filePath, clickedFile.name);
+        return;
+    }
+    if (isImageFile(clickedFile.name)) {
+        // 图片：只收集图片，导航时不会遇到视频/音频
+        _pubMediaFiles = _allFiles.filter(f => !f.isDirectory && isImageFile(f.name));
+    } else if (isPlayableAudio(clickedFile.name)) {
+        // 音频：收集所有可播放音频，支持导航切换
+        _pubMediaFiles = _allFiles.filter(f => !f.isDirectory && isPlayableAudio(f.name));
+    } else {
+        // 视频：只收集当前视频，单独播放
+        _pubMediaFiles = [clickedFile];
+    }
+    _pubMediaIndex = _pubMediaFiles.findIndex(f => f.path === filePath);
+    if (_pubMediaIndex < 0) return;
+    pubShowMediaAt(_pubMediaIndex);
+}
+
+function pubShowMediaAt(index) {
+    if (index < 0 || index >= _pubMediaFiles.length) return;
+    _pubMediaIndex = index;
+    const f = _pubMediaFiles[index];
+    const url = '/api/public/files/preview?path=' + encodeURIComponent(f.path);
+    // 根据媒体数量控制导航按钮
+    const hasMultiple = _pubMediaFiles.length > 1;
+    document.getElementById('pub-image-prev-btn').style.display = hasMultiple ? 'flex' : 'none';
+    document.getElementById('pub-image-next-btn').style.display = hasMultiple ? 'flex' : 'none';
+    if (isPlayableVideo(f.name)) {
+        // 关闭图片查看器，打开视频
+        pubEndImageDrag();
+        pubEndPanelDrag();
+        _pubImageRotation = 0; _pubImageScale = 1; _pubImageTranslateX = 0; _pubImageTranslateY = 0;
+        document.getElementById('pub-modal-image-viewer').classList.add('hidden');
+        document.getElementById('pub-image-viewer-img').src = '';
+        document.getElementById('pub-image-viewer-img').style.transform = '';
+        document.getElementById('pub-video-player-title').innerText = f.name;
+        const video = document.getElementById('pub-video-player-el');
+        video.src = '';
+        video.removeAttribute('src');
+        video.src = url;
+        video.load();
+        // 视频模式：恢复面板宽度
+        document.getElementById('pub-video-player-panel').style.maxWidth = '45vw';
+        document.getElementById('pub-video-player-el').style.maxHeight = '38vh';
+        document.getElementById('pub-video-player-el').style.width = '';
+        document.getElementById('pub-video-player-el').style.height = '';
+        // 键盘事件：上下键调音量，左右键快进快退
+        video.addEventListener('keydown', function(e) {
+            if (e.key === 'ArrowLeft') { e.preventDefault(); video.currentTime = Math.max(0, video.currentTime - 5); }
+            if (e.key === 'ArrowRight') { e.preventDefault(); video.currentTime = Math.min(video.duration || Infinity, video.currentTime + 5); }
+            if (e.key === 'ArrowUp') { e.preventDefault(); e.stopPropagation(); pubAdjustVideoVolume(video, 0.05); }
+            if (e.key === 'ArrowDown') { e.preventDefault(); e.stopPropagation(); pubAdjustVideoVolume(video, -0.05); }
+        }, true);
+        document.getElementById('pub-modal-video-player').classList.remove('hidden');
+        // 初始化音量显示
+        pubUpdateVolumeLabel(video);
+        document.body.style.overflow = 'hidden';
+        logAction('播放视频', f.name);
+    } else if (isPlayableAudio(f.name)) {
+        // 音频：使用底部固定栏播放器
+        pubEndImageDrag();
+        pubEndPanelDrag();
+        _pubImageRotation = 0; _pubImageScale = 1; _pubImageTranslateX = 0; _pubImageTranslateY = 0;
+        document.getElementById('pub-modal-image-viewer').classList.add('hidden');
+        document.getElementById('pub-image-viewer-img').src = '';
+        document.getElementById('pub-image-viewer-img').style.transform = '';
+        document.getElementById('pub-modal-video-player').classList.add('hidden');
+        // 使用独立音频播放器
+        pubOpenAudioPlayer(f, url);
+        logAction('播放音频', f.name);
+    } else {
+        // 重置所有状态（包括拖拽标记）
+        pubEndImageDrag();
+        pubEndPanelDrag();
+        _pubImageRotation = 0;
+        _pubImageScale = 1;
+        _pubImageTranslateX = 0;
+        _pubImageTranslateY = 0;
+        // 递增版本号，使之前的 onload 回调失效
+        _pubImageLoadVersion++;
+        document.getElementById('pub-image-viewer-title').innerText = f.name;
+        const img = document.getElementById('pub-image-viewer-img');
+        img.style.transform = '';
+        img.style.cursor = 'grab';
+        document.getElementById('pub-image-zoom-label').innerText = '100%';
+        document.getElementById('pub-modal-image-viewer').classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+        pubAutoFitImage(img, url, _pubImageLoadVersion);
+        logAction('查看图片', f.name);
+    }
+}
+
+// 图片加载版本号（防止旧 onload 覆盖用户缩放）
+let _pubImageLoadVersion = 0;
+
+// 图片自动适配到合适的显示大小
+function pubAutoFitImage(img, url, loadVersion) {
+    img.style.transform = 'scale(0.01)';
+    img.src = url;
+    const onDone = () => {
+        // 版本不匹配说明用户已切换到其他图片或已手动缩放，不覆盖
+        if (loadVersion !== _pubImageLoadVersion) return;
+        if (!img.naturalWidth || !img.naturalHeight) return;
+        const container = document.getElementById('pub-image-viewer-container');
+        const cw = Math.max(container.clientWidth - 32, 100);
+        const ch = Math.max(container.clientHeight - 32, 100);
+        const fitScale = Math.min(cw / img.naturalWidth, ch / img.naturalHeight, 1);
+        _pubImageScale = Math.round(fitScale * 100) / 100;
+        _pubImageTranslateX = 0;
+        _pubImageTranslateY = 0;
+        pubApplyImageTransform();
+        img.style.cursor = 'grab';
+    };
+    if (img.complete && img.naturalWidth) {
+        onDone();
+    } else {
+        img.onload = onDone;
+    }
+}
+
+function pubApplyImageTransform() {
+    const img = document.getElementById('pub-image-viewer-img');
+    const t = 'translate(' + _pubImageTranslateX + 'px, ' + _pubImageTranslateY + 'px) rotate(' + _pubImageRotation + 'deg) scale(' + _pubImageScale + ')';
+    img.style.transform = t;
+    document.getElementById('pub-image-zoom-label').innerText = Math.round(_pubImageScale * 100) + '%';
+}
+
+function pubRotateImage(deg) {
+    _pubImageRotation = ((_pubImageRotation + deg) % 360 + 360) % 360;
+    pubApplyImageTransform();
+    logAction('旋转图片', _pubImageRotation + '°');
+}
+
+function pubZoomImage(delta) {
+    _pubImageScale = Math.max(0.1, Math.min(5, _pubImageScale + delta));
+    pubApplyImageTransform();
+    const img = document.getElementById('pub-image-viewer-img');
+    img.style.cursor = 'grab';
+}
+
+function pubResetImageTransform() {
+    pubEndImageDrag();
+    const img = document.getElementById('pub-image-viewer-img');
+    _pubImageRotation = 0;
+    _pubImageTranslateX = 0;
+    _pubImageTranslateY = 0;
+    _pubImageScale = 1;
+    img.style.transform = '';
+    img.style.cursor = 'grab';
+    document.getElementById('pub-image-zoom-label').innerText = '100%';
+    _pubImageLoadVersion++;
+    pubAutoFitImage(img, img.src, _pubImageLoadVersion);
+}
+
+// 结束图片拖拽（公共函数）
+function pubEndImageDrag() {
+    if (!_pubIsDragging) return;
+    _pubIsDragging = false;
+    const img = document.getElementById('pub-image-viewer-img');
+    img.style.cursor = 'grab';
+    img.style.transition = 'transform 0.15s ease';
+}
+
+// 鼠标拖拽移动图片
+(function() {
+    const img = document.getElementById('pub-image-viewer-img');
+    img.addEventListener('mousedown', function(e) {
+        // 如果面板正在拖拽，不处理图片拖拽
+        if (_pubPanelDragging) return;
+        e.preventDefault();
+        _pubIsDragging = true;
+        _pubDragStartX = e.clientX;
+        _pubDragStartY = e.clientY;
+        _pubDragOrigTranslateX = _pubImageTranslateX;
+        _pubDragOrigTranslateY = _pubImageTranslateY;
+        img.style.cursor = 'grabbing';
+        img.style.transition = 'none';
+    });
+    window.addEventListener('mousemove', function(e) {
+        if (!_pubIsDragging) return;
+        const dx = e.clientX - _pubDragStartX;
+        const dy = e.clientY - _pubDragStartY;
+        _pubImageTranslateX = _pubDragOrigTranslateX + dx;
+        _pubImageTranslateY = _pubDragOrigTranslateY + dy;
+        const t = 'translate(' + _pubImageTranslateX + 'px, ' + _pubImageTranslateY + 'px) rotate(' + _pubImageRotation + 'deg) scale(' + _pubImageScale + ')';
+        document.getElementById('pub-image-viewer-img').style.transform = t;
+    });
+    document.addEventListener('mouseup', pubEndImageDrag);
+    document.addEventListener('mouseleave', pubEndImageDrag);
+})();
+
+// 图片查看器滚轮缩放
+document.getElementById('pub-image-viewer-container').addEventListener('wheel', function(e) {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.15 : 0.15;
+    pubZoomImage(delta);
+}, { passive: false });
+
+// ========== 面板拖拽（视频播放器和图片查看器） ==========
+let _pubPanelDragging = false;
+let _pubPanelElement = null;
+let _pubPanelDragSX = 0, _pubPanelDragSY = 0;
+let _pubPanelDragTX = 0, _pubPanelDragTY = 0;
+let _pubPanelDragPW = 0, _pubPanelDragPH = 0;  // 拖拽开始时面板的宽高
+
+function pubEndPanelDrag() {
+    if (!_pubPanelDragging) return;
+    var style = _pubPanelElement.style.transform || '';
+    var m = style.match(/translate\(([^,]+)px,\s*([^)]+)px\)/);
+    if (m) {
+        _pubPanelElement.setAttribute('data-tx', m[1]);
+        _pubPanelElement.setAttribute('data-ty', m[2]);
+    }
+    _pubPanelDragging = false;
+    _pubPanelElement = null;
+    document.body.style.userSelect = '';
+}
+
+window.addEventListener('mousedown', function(e) {
+    if (_pubIsDragging) return;
+    if (_pubPanelDragging) return;
+    var handle = e.target.closest('.panel-drag-handle');
+    if (!handle) return;
+    if (e.target.closest('button')) return;
+    var panel = handle.closest('[data-panel]');
+    if (!panel) return;
+    e.preventDefault();
+    _pubPanelDragging = true;
+    _pubPanelElement = panel;
+    _pubPanelDragSX = e.clientX;
+    _pubPanelDragSY = e.clientY;
+    _pubPanelDragTX = parseFloat(panel.getAttribute('data-tx') || '0');
+    _pubPanelDragTY = parseFloat(panel.getAttribute('data-ty') || '0');
+    // 保存拖拽开始时面板的布局尺寸（不受 transform 影响）
+    var rect = panel.getBoundingClientRect();
+    _pubPanelDragPW = rect.width;
+    _pubPanelDragPH = rect.height;
+    document.body.style.userSelect = 'none';
+});
+
+window.addEventListener('mousemove', function(e) {
+    if (!_pubPanelDragging) return;
+    var tx = _pubPanelDragTX + (e.clientX - _pubPanelDragSX);
+    var ty = _pubPanelDragTY + (e.clientY - _pubPanelDragSY);
+    _pubPanelElement.style.transform = 'translate(' + tx + 'px, ' + ty + 'px)';
+});
+
+// 使用 window 级别监听，确保鼠标移出浏览器窗口时也能结束拖拽
+window.addEventListener('mouseup', pubEndPanelDrag);
+window.addEventListener('blur', pubEndPanelDrag);
+
+function pubNavigateMedia(delta) {
+    pubShowMediaAt(_pubMediaIndex + delta);
+}
+
+// 下载当前预览的媒体文件（图片/视频）
+function pubDownloadCurrentMedia() {
+    if (!_pubMediaFiles || _pubMediaIndex < 0 || _pubMediaIndex >= _pubMediaFiles.length) return;
+    var f = _pubMediaFiles[_pubMediaIndex];
+    downloadPublicFile(f.path, f.name);
+}
+
+// 下载当前预览的文档文件
+function pubDownloadCurrentDoc() {
+    if (!_pubDocPreviewPath) return;
+    var clickedFile = _allFiles.find(f => f.path === _pubDocPreviewPath);
+    downloadPublicFile(_pubDocPreviewPath, clickedFile ? clickedFile.name : _pubDocPreviewPath.split('/').pop());
+}
+
+function pubCloseImageViewer() {
+    pubEndImageDrag();
+    pubEndPanelDrag();
+    _pubImageRotation = 0;
+    _pubImageScale = 1;
+    _pubImageTranslateX = 0;
+    _pubImageTranslateY = 0;
+    _pubImageLoadVersion++;
+    document.getElementById('pub-modal-image-viewer').classList.add('hidden');
+    document.getElementById('pub-image-viewer-img').src = '';
+    document.getElementById('pub-image-viewer-img').style.transform = '';
+    document.getElementById('pub-image-viewer-img').style.cursor = 'grab';
+    const panel = document.getElementById('pub-image-viewer-panel');
+    panel.style.transform = '';
+    panel.setAttribute('data-tx', '0');
+    panel.setAttribute('data-ty', '0');
+    document.body.style.overflow = '';
+    document.body.style.userSelect = '';
+}
+
+function pubCloseVideoPlayer() {
+    pubEndPanelDrag();
+    document.getElementById('pub-modal-video-player').classList.add('hidden');
+    const video = document.getElementById('pub-video-player-el');
+    video.pause();
+    video.src = '';
+    video.removeAttribute('src');
+    const panel = document.getElementById('pub-video-player-panel');
+    panel.style.transform = '';
+    panel.setAttribute('data-tx', '0');
+    panel.setAttribute('data-ty', '0');
+    document.body.style.overflow = '';
+}
+
+// ========== 文档预览（PDF/Word/Excel/文本） ==========
+var _pubDocPreviewType = '';
+var _pubDocPreviewPath = '';
+var _pubPdfDoc = null;
+var _pubPdfPageNum = 0;
+var _pubPdfTotalPages = 0;
+var _pubExcelWb = null; // SheetJS workbook 引用
+var _pubExcelActiveSheet = 0;
+
+function pubOpenDocPreview(filePath) {
+    if (!filePath) return;
+    var clickedFile = _allFiles.find(f => f.path === filePath);
+    if (!clickedFile) return;
+    if (clickedFile.size > 50 * 1024 * 1024) {
+        showToast('文件过大（>50MB），不支持预览');
+        return;
+    }
+    var rawUrl = '/api/public/files/preview/raw?path=' + encodeURIComponent(filePath);
+    var downloadUrl = '/api/public/files/preview?path=' + encodeURIComponent(filePath);
+
+    _pubDocPreviewPath = filePath;
+    _pubPdfDoc = null; _pubPdfPageNum = 0; _pubPdfTotalPages = 0;
+    document.getElementById('pub-doc-preview-pdf').classList.add('hidden');
+    document.getElementById('pub-doc-preview-word').classList.add('hidden');
+    document.getElementById('pub-doc-preview-excel').classList.add('hidden');
+    document.getElementById('pub-doc-preview-text').classList.add('hidden');
+    document.getElementById('pub-doc-preview-unsupported').classList.add('hidden');
+    var pubLoadingEl = document.getElementById('pub-doc-preview-loading');
+    pubLoadingEl.classList.remove('hidden');
+    pubLoadingEl.querySelector('span').textContent = '加载中...';
+    document.getElementById('pub-doc-prev-btn').classList.add('hidden');
+    document.getElementById('pub-doc-next-btn').classList.add('hidden');
+    document.getElementById('pub-doc-viewer-pages').classList.add('hidden');
+    document.getElementById('pub-doc-viewer-title').textContent = clickedFile.name;
+    document.getElementById('pub-modal-doc-viewer').classList.remove('hidden');
+
+    var name = clickedFile.name;
+    if (isPdfFile(name)) {
+        _pubDocPreviewType = 'pdf';
+        pubLoadPdfPreview(rawUrl);
+    } else if (isWordFile(name)) {
+        _pubDocPreviewType = 'word';
+        pubLoadWordPreview(rawUrl);
+    } else if (isExcelFile(name)) {
+        _pubDocPreviewType = 'excel';
+        pubLoadExcelPreview(rawUrl);
+    } else if (isTextFile(name)) {
+        _pubDocPreviewType = 'text';
+        pubLoadTextPreview(rawUrl);
+    } else {
+        _pubDocPreviewType = '';
+        pubShowDocUnsupported();
+    }
+}
+
+function pubLoadPdfPreview(url) {
+    document.getElementById('pub-doc-preview-loading').classList.remove('hidden');
+    if (typeof pdfjsLib !== 'undefined') {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'CDN/pdf.worker.min.js';
+        // 先用 fetch 获取完整的 PDF 数据，再用 data 参数传给 PDF.js
+        // credentials: 'same-origin' 确保携带 session cookie
+        fetch(url, { credentials: 'same-origin' }).then(function(r) {
+            if (!r.ok) return r.text().then(function(t) { throw new Error(t || 'HTTP ' + r.status); });
+            return r.arrayBuffer();
+        }).then(function(data) {
+            if (!data || data.byteLength === 0) throw new Error('文件内容为空');
+            var loadingTask = pdfjsLib.getDocument({ data: data });
+            loadingTask.promise.then(function(pdf) {
+                _pubPdfDoc = pdf;
+                _pubPdfTotalPages = pdf.numPages;
+                document.getElementById('pub-doc-preview-loading').classList.add('hidden');
+                document.getElementById('pub-doc-preview-pdf').classList.remove('hidden');
+                if (_pubPdfTotalPages > 1) {
+                    document.getElementById('pub-doc-prev-btn').classList.remove('hidden');
+                    document.getElementById('pub-doc-next-btn').classList.remove('hidden');
+                    document.getElementById('pub-doc-viewer-pages').classList.remove('hidden');
+                }
+                _pubPdfPageNum = 1;
+                pubRenderPdfPage(_pubPdfPageNum);
+            }).catch(function(err) { pubShowDocUnsupported(err && err.message ? err.message : ''); });
+        }).catch(function(err) { pubShowDocUnsupported(err && err.message ? err.message : ''); });
+    } else { pubShowDocUnsupported(); }
+}
+
+function pubRenderPdfPage(num) {
+    if (!_pubPdfDoc) return;
+    _pubPdfDoc.getPage(num).then(function(page) {
+        var viewport = page.getViewport({ scale: 1.5 });
+        var canvas = document.getElementById('pub-doc-pdf-canvas');
+        var ctx = canvas.getContext('2d');
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        page.render({ canvasContext: ctx, viewport: viewport });
+        document.getElementById('pub-doc-viewer-pages').textContent = num + ' / ' + _pubPdfTotalPages;
+        document.getElementById('pub-doc-prev-btn').style.visibility = num <= 1 ? 'hidden' : 'visible';
+        document.getElementById('pub-doc-next-btn').style.visibility = num >= _pubPdfTotalPages ? 'hidden' : 'visible';
+    });
+}
+
+function pubDocPrevPage() {
+    if (_pubPdfDoc && _pubPdfPageNum > 1) { _pubPdfPageNum--; pubRenderPdfPage(_pubPdfPageNum); }
+}
+function pubDocNextPage() {
+    if (_pubPdfDoc && _pubPdfPageNum < _pubPdfTotalPages) { _pubPdfPageNum++; pubRenderPdfPage(_pubPdfPageNum); }
+}
+
+function pubLoadWordPreview(url) {
+    if (typeof mammoth === 'undefined') {
+        var loadingEl = document.getElementById('pub-doc-preview-loading');
+        if (loadingEl) {
+            loadingEl.querySelector('span').textContent = '解析库正在加载...';
+            loadingEl.classList.remove('hidden');
+        }
+        setTimeout(function() { pubLoadWordPreview(url); }, 500);
+        return;
+    }
+    fetch(url, { credentials: 'same-origin' }).then(function(r) { if (!r.ok) return r.text().then(function(t) { throw new Error(t || '加载失败'); }); return r.arrayBuffer(); })
+    .then(function(buf) { return mammoth.convertToHtml({ arrayBuffer: buf }); })
+    .then(function(result) {
+        document.getElementById('pub-doc-preview-loading').classList.add('hidden');
+        document.getElementById('pub-doc-preview-word').classList.remove('hidden');
+        document.getElementById('pub-doc-preview-container').innerHTML = result.value;
+    }).catch(function(err) { pubShowDocUnsupported(err && err.message ? err.message : ''); });
+}
+
+function pubLoadExcelPreview(url) {
+    if (typeof XLSX === 'undefined') {
+        var loadingEl = document.getElementById('pub-doc-preview-loading');
+        if (loadingEl) {
+            loadingEl.querySelector('span').textContent = '解析库正在加载...';
+            loadingEl.classList.remove('hidden');
+        }
+        setTimeout(function() { pubLoadExcelPreview(url); }, 500);
+        return;
+    }
+    fetch(url, { credentials: 'same-origin' }).then(function(r) { if (!r.ok) return r.text().then(function(t) { throw new Error(t || '加载失败'); }); return r.arrayBuffer(); })
+    .then(function(buf) {
+        if (!buf || buf.byteLength === 0) throw new Error('文件内容为空');
+        var data = new Uint8Array(buf);
+        var wb;
+        try {
+            wb = XLSX.read(data, { type: 'array' });
+        } catch(e1) {
+            try {
+                // 降级：分块转换 Uint8Array 为 binary string（兼容老 BIFF .xls）
+                var bstr = '';
+                var CHUNK = 4096;
+                for (var i = 0; i < data.length; i += CHUNK) {
+                    bstr += String.fromCharCode.apply(null, data.subarray(i, i + CHUNK));
+                }
+                wb = XLSX.read(bstr, { type: 'binary' });
+            } catch(e2) {
+                throw e1;
+            }
+        }
+        // 存储 workbook 引用，支持 Sheet 切换
+        _pubExcelWb = wb;
+        _pubExcelActiveSheet = 0;
+        pubRenderExcelSheet(0);
+    }).catch(function(err) { pubShowDocUnsupported(err && err.message ? err.message : ''); });
+}
+
+function pubRenderExcelSheet(idx) {
+    if (!_pubExcelWb || idx < 0 || idx >= _pubExcelWb.SheetNames.length) return;
+    _pubExcelActiveSheet = idx;
+    var sheetName = _pubExcelWb.SheetNames[idx];
+    var html = XLSX.utils.sheet_to_html(_pubExcelWb.Sheets[sheetName], { editable: false });
+    document.getElementById('pub-doc-preview-loading').classList.add('hidden');
+    document.getElementById('pub-doc-preview-excel').classList.remove('hidden');
+    document.getElementById('pub-doc-preview-excel-wrap').innerHTML = html;
+    // 渲染 Sheet 标签页
+    var tabsHtml = '';
+    for (var i = 0; i < _pubExcelWb.SheetNames.length; i++) {
+        tabsHtml += '<button class="excel-sheet-tab' + (i === idx ? ' active' : '') +
+            '" onclick="pubRenderExcelSheet(' + i + ')">' + escHtml(_pubExcelWb.SheetNames[i]) + '</button>';
+    }
+    document.getElementById('pub-doc-preview-excel-tabs').innerHTML = tabsHtml;
+    document.getElementById('pub-doc-preview-excel-tabs').style.display = _pubExcelWb.SheetNames.length > 1 ? 'flex' : 'none';
+}
+
+function pubLoadTextPreview(url) {
+    fetch(url, { credentials: 'same-origin' }).then(function(r) { if (!r.ok) return r.text().then(function(t) { throw new Error(t || '加载失败'); }); return r.arrayBuffer(); })
+    .then(function(buf) {
+        var text = '';
+        // 检测 BOM 头判断编码
+        var arr = new Uint8Array(buf);
+        if (arr.length >= 3 && arr[0] === 0xEF && arr[1] === 0xBB && arr[2] === 0xBF) {
+            // UTF-8 BOM
+            text = new TextDecoder('utf-8').decode(buf.slice(3));
+        } else if (arr.length >= 2 && arr[0] === 0xFF && arr[1] === 0xFE) {
+            // UTF-16 LE
+            text = new TextDecoder('utf-16le').decode(buf.slice(2));
+        } else if (arr.length >= 2 && arr[0] === 0xFE && arr[1] === 0xFF) {
+            // UTF-16 BE
+            text = new TextDecoder('utf-16be').decode(buf.slice(2));
+        } else {
+            // 无 BOM：先尝试 UTF-8，失败则降级到 GBK
+            try {
+                text = new TextDecoder('utf-8', { fatal: true }).decode(buf);
+            } catch(e) {
+                try {
+                    text = new TextDecoder('gbk').decode(buf);
+                } catch(e2) {
+                    text = new TextDecoder('gb2312').decode(buf);
+                }
+            }
+        }
+        var maxLen = 500000;
+        if (text.length > maxLen) text = text.substring(0, maxLen) + '\n\n... (内容过长，已截断，请下载查看完整文件)';
+        document.getElementById('pub-doc-preview-loading').classList.add('hidden');
+        document.getElementById('pub-doc-preview-text').classList.remove('hidden');
+        document.getElementById('pub-doc-preview-text').textContent = text;
+    }).catch(function(err) { pubShowDocUnsupported(err && err.message ? err.message : ''); });
+}
+
+function pubShowDocUnsupported(msg) {
+    document.getElementById('pub-doc-preview-loading').classList.add('hidden');
+    var msgEl = document.getElementById('pub-doc-preview-unsupported-msg');
+    msgEl.textContent = msg || '此文件格式暂不支持预览';
+    document.getElementById('pub-doc-preview-unsupported').classList.remove('hidden');
+}
+
+function pubCloseDocViewer() {
+    pubEndPanelDrag();
+    document.getElementById('pub-modal-doc-viewer').classList.add('hidden');
+    _pubPdfDoc = null;
+    _pubExcelWb = null;
+    _pubExcelActiveSheet = 0;
+    var canvas = document.getElementById('pub-doc-pdf-canvas');
+    var ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    document.getElementById('pub-doc-preview-container').innerHTML = '';
+    document.getElementById('pub-doc-preview-excel-wrap').innerHTML = '';
+    document.getElementById('pub-doc-preview-excel-tabs').innerHTML = '';
+    document.getElementById('pub-doc-preview-text').textContent = '';
+    // 重置面板位置
+    var panel = document.getElementById('pub-doc-viewer-panel');
+    if (panel) {
+        panel.style.transform = '';
+        panel.setAttribute('data-tx', '0');
+        panel.setAttribute('data-ty', '0');
+    }
+}
+
+// ===== 音频播放器（底部固定栏） =====
+var _pubAudioPlaylist = [];
+var _pubAudioPlayIndex = -1;
+var _pubAudioWaveAnimId = null;
+
+function _pubInitAudioWaveCanvas() {
+    var canvas = document.getElementById('pub-audio-wave-canvas');
+    var dpr = window.devicePixelRatio || 1;
+    var rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    var ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+    return { canvas: canvas, ctx: ctx, w: rect.width, h: rect.height };
+}
+
+function _pubDrawAudioWave(progress, playing) {
+    var c = _pubInitAudioWaveCanvas();
+    var ctx = c.ctx, w = c.w, h = c.h;
+    ctx.clearRect(0, 0, w, h);
+
+    var barCount = 128;
+    var barWidth = (w / barCount) * 0.5;
+    var gap = (w / barCount) * 0.5;
+    var centerY = h / 2;
+    var playedBars = Math.floor(progress * barCount);
+
+    function pseudoRandom(seed) {
+        var x = Math.sin(seed * 127.1 + 311.7) * 43758.5453;
+        return x - Math.floor(x);
+    }
+
+    for (var i = 0; i < barCount; i++) {
+        var r = pseudoRandom(i * 0.37 + 5.19);
+        var maxH = (h - 6) * (0.3 + r * 0.7);
+        var x = i * (barWidth + gap) + gap / 2;
+
+        if (i < playedBars) {
+            var alpha = 0.7 + (i / playedBars) * 0.3;
+            ctx.fillStyle = 'rgba(59, 130, 246, ' + alpha + ')';
+        } else {
+            ctx.fillStyle = 'rgba(107, 114, 128, 0.45)';
+        }
+
+        var bh = maxH;
+        if (playing && i === playedBars) {
+            bh = maxH * (1.2 + 0.4 * Math.sin(Date.now() / 150));
+        }
+
+        ctx.fillRect(x, centerY - bh / 2, barWidth, bh);
+    }
+
+    if (progress > 0) {
+        ctx.strokeStyle = 'rgba(59, 130, 246, 0.6)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(0, centerY);
+        ctx.lineTo(w * progress, centerY);
+        ctx.stroke();
+    }
+}
+
+function _pubStartAudioWaveAnimation() {
+    var audio = document.getElementById('pub-audio-player-el');
+    function animate() {
+        var progress = audio.duration ? audio.currentTime / audio.duration : 0;
+        _pubDrawAudioWave(progress, !audio.paused);
+        _pubAudioWaveAnimId = requestAnimationFrame(animate);
+    }
+    if (_pubAudioWaveAnimId) cancelAnimationFrame(_pubAudioWaveAnimId);
+    animate();
+}
+
+function _pubStopAudioWaveAnimation() {
+    if (_pubAudioWaveAnimId) {
+        cancelAnimationFrame(_pubAudioWaveAnimId);
+        _pubAudioWaveAnimId = null;
+    }
+    var audio = document.getElementById('pub-audio-player-el');
+    var progress = audio.duration ? audio.currentTime / audio.duration : 0;
+    _pubDrawAudioWave(progress, false);
+}
+
+function pubOpenAudioPlayer(f, url) {
+    _pubAudioPlaylist = _pubMediaFiles;
+    _pubAudioPlayIndex = _pubMediaIndex;
+    var bar = document.getElementById('pub-audio-player-bar');
+    bar.style.display = 'flex';
+    document.getElementById('pub-audio-player-title').innerText = f.name;
+    _pubCheckAudioTitleMarquee(document.getElementById('pub-audio-player-title'));
+    var audio = document.getElementById('pub-audio-player-el');
+    audio.src = url;
+    audio.load();
+    audio.play();
+    pubUpdateAudioPlayBtn(true);
+    audio.ontimeupdate = function() { pubUpdateAudioTimeDisplay(audio); };
+    audio.onloadedmetadata = function() { pubUpdateAudioDuration(audio); };
+    audio.onended = function() {
+        pubUpdateAudioPlayBtn(false);
+        _pubStopAudioWaveAnimation();
+        _pubDrawAudioWave(1, false);
+    };
+    audio.onplay = function() {
+        pubUpdateAudioPlayBtn(true);
+        _pubStartAudioWaveAnimation();
+    };
+    audio.onpause = function() {
+        pubUpdateAudioPlayBtn(false);
+        _pubStopAudioWaveAnimation();
+    };
+    document.getElementById('pub-audio-volume-bar').value = Math.round(audio.volume * 100);
+    document.getElementById('pub-audio-prev-btn').style.display = _pubAudioPlaylist.length > 1 ? '' : 'none';
+    document.getElementById('pub-audio-next-btn').style.display = _pubAudioPlaylist.length > 1 ? '' : 'none';
+    audio.addEventListener('keydown', function(e) {
+        if (e.key === 'ArrowLeft') { e.preventDefault(); audio.currentTime = Math.max(0, audio.currentTime - 5); }
+        if (e.key === 'ArrowRight') { e.preventDefault(); audio.currentTime = Math.min(audio.duration || Infinity, audio.currentTime + 5); }
+        if (e.key === 'ArrowUp') { e.preventDefault(); pubSetAudioVolume(Math.round((audio.volume + 0.05) * 100)); }
+        if (e.key === 'ArrowDown') { e.preventDefault(); pubSetAudioVolume(Math.round((audio.volume - 0.05) * 100)); }
+    }, true);
+    var waveCanvas = document.getElementById('pub-audio-wave-canvas');
+    waveCanvas.onclick = function(e) {
+        var rect = waveCanvas.getBoundingClientRect();
+        var ratio = (e.clientX - rect.left) / rect.width;
+        if (audio.duration) {
+            audio.currentTime = ratio * audio.duration;
+        }
+    };
+    _pubDrawAudioWave(0, false);
+}
+
+function pubToggleAudioPlay() {
+    var audio = document.getElementById('pub-audio-player-el');
+    if (audio.paused) { audio.play(); } else { audio.pause(); }
+}
+
+function pubUpdateAudioPlayBtn(playing) {
+    var btn = document.getElementById('pub-audio-play-btn');
+    if (playing) {
+        btn.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>';
+    } else {
+        btn.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.14v14l11-7z"/></svg>';
+    }
+}
+
+function pubUpdateAudioTimeDisplay(audio) {
+    document.getElementById('pub-audio-current-time').innerText = pubFormatTime(audio.currentTime);
+}
+
+function pubUpdateAudioDuration(audio) {
+    document.getElementById('pub-audio-duration-time').innerText = pubFormatTime(audio.duration || 0);
+}
+
+function pubSetAudioVolume(value) {
+    var audio = document.getElementById('pub-audio-player-el');
+    audio.volume = value / 100;
+    document.getElementById('pub-audio-volume-bar').value = value;
+    pubUpdateAudioMuteBtn(audio);
+}
+
+function pubToggleAudioMute() {
+    var audio = document.getElementById('pub-audio-player-el');
+    audio.muted = !audio.muted;
+    pubUpdateAudioMuteBtn(audio);
+}
+
+function pubUpdateAudioMuteBtn(audio) {
+    var btn = document.getElementById('pub-audio-mute-btn');
+    if (audio.muted || audio.volume === 0) {
+        btn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M16.5 12c0-1.77-1-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63m2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71M4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3M12 4L9.91 6.09 12 8.18V4z"/></svg>';
+    } else {
+        btn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.84-5 6.7v2.07c4-.91 7-4.49 7-8.77s-3-7.86-7-8.77M16.5 12c0-1.77-1-3.29-2.5-4.03V16c1.5-.71 2.5-2.24 2.5-4M3 9v6h4l5 5V4L7 9z"/></svg>';
+    }
+}
+
+function pubAudioPlayerPrev() {
+    if (_pubAudioPlaylist.length <= 1) return;
+    _pubAudioPlayIndex = (_pubAudioPlayIndex - 1 + _pubAudioPlaylist.length) % _pubAudioPlaylist.length;
+    _pubMediaIndex = _pubAudioPlayIndex;
+    pubAudioPlayerLoadCurrent();
+}
+
+function pubAudioPlayerNext() {
+    if (_pubAudioPlaylist.length <= 1) return;
+    _pubAudioPlayIndex = (_pubAudioPlayIndex + 1) % _pubAudioPlaylist.length;
+    _pubMediaIndex = _pubAudioPlayIndex;
+    pubAudioPlayerLoadCurrent();
+}
+
+function pubAudioPlayerLoadCurrent() {
+    if (_pubAudioPlayIndex < 0 || _pubAudioPlayIndex >= _pubAudioPlaylist.length) return;
+    var f = _pubAudioPlaylist[_pubAudioPlayIndex];
+    var url = '/api/public/files/preview?path=' + encodeURIComponent(f.path);
+    document.getElementById('pub-audio-player-title').innerText = f.name;
+    _pubCheckAudioTitleMarquee(document.getElementById('pub-audio-player-title'));
+    var audio = document.getElementById('pub-audio-player-el');
+    audio.src = url;
+    audio.load();
+    audio.play();
+}
+
+function pubCloseAudioPlayer() {
+    _pubStopAudioWaveAnimation();
+    var audio = document.getElementById('pub-audio-player-el');
+    audio.pause();
+    audio.removeAttribute('src');
+    audio.load();
+    document.getElementById('pub-audio-player-bar').style.display = 'none';
+    _pubAudioPlaylist = [];
+    _pubAudioPlayIndex = -1;
+}
+
+function _pubCheckAudioTitleMarquee(el) {
+    var wrap = el.parentNode;
+    el.classList.remove('marquee');
+    void el.offsetWidth;
+    if (el.scrollWidth > wrap.clientWidth) {
+        var clone = wrap.querySelector('.audio-title-clone');
+        if (!clone) {
+            clone = document.createElement('span');
+            clone.className = 'audio-title-inner audio-title-clone';
+            wrap.appendChild(clone);
+        }
+        clone.textContent = el.textContent;
+        el.classList.add('marquee');
+        clone.classList.add('marquee');
+    } else {
+        var clone = wrap.querySelector('.audio-title-clone');
+        if (clone) clone.remove();
+    }
+}
+
+function pubFormatTime(seconds) {
+    if (!seconds || !isFinite(seconds)) return '00:00';
+    var m = Math.floor(seconds / 60);
+    var s = Math.floor(seconds % 60);
+    return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+}
+
+// 调整视频音量（delta 为增减量，范围 0~1）
+function pubAdjustVideoVolume(video, delta) {
+    video.volume = Math.max(0, Math.min(1, video.volume + delta));
+    pubUpdateVolumeLabel(video);
+}
+
+// 更新音量百分比显示
+function pubUpdateVolumeLabel(video) {
+    const pct = Math.round(video.volume * 100);
+    const icon = video.muted || video.volume === 0 ? '🔇' : (video.volume < 0.5 ? '🔉' : '🔊');
+    pubShowVolumeOverlay(icon + ' ' + pct + '%');
+}
+
+function pubShowVolumeOverlay(text) {
+    const overlay = document.getElementById('pub-video-volume-overlay');
+    if (!overlay) return;
+    overlay.textContent = text;
+    overlay.classList.remove('hidden');
+    overlay.style.display = '';
+    clearTimeout(overlay._hideTimer);
+    overlay._hideTimer = setTimeout(function() { overlay.classList.add('hidden'); }, 1500);
+}
+
+// 自定义全屏：直接全屏 panel（包含 header、视频、控制条、overlay）
+function pubToggleVideoFullscreen() {
+    const panel = document.getElementById('pub-video-player-panel');
+    if (!panel) return;
+    if (document.fullscreenElement === panel) {
+        document.exitFullscreen();
+    } else {
+        panel.style.maxWidth = '100vw';
+        panel.style.maxHeight = '100vh';
+        panel.style.borderRadius = '0';
+        panel.style.width = '100vw';
+        panel.style.height = '100vh';
+        panel.requestFullscreen();
+    }
+}
+
+// 全屏切换后自动聚焦视频
+document.addEventListener('fullscreenchange', function() {
+    const panel = document.getElementById('pub-video-player-panel');
+    const video = document.getElementById('pub-video-player-el');
+    if (document.fullscreenElement === panel) {
+        if (video) video.style.maxHeight = 'calc(100vh - 40px)';
+        if (document.activeElement) document.activeElement.blur();
+        setTimeout(function() { if (video) video.focus(); }, 50);
+    } else {
+        if (panel) {
+            panel.style.maxWidth = '';
+            panel.style.maxHeight = '';
+            panel.style.borderRadius = '';
+            panel.style.width = '';
+            panel.style.height = '';
+        }
+        if (video) video.style.maxHeight = '38vh';
+    }
+});
+
+// 视频播放/暂停
+function pubToggleVideoPlay() {
+    const video = document.getElementById('pub-video-player-el');
+    const btn = document.getElementById('pub-video-play-btn');
+    if (!video || !btn) return;
+    if (video.paused) {
+        video.play();
+        btn.innerHTML = '<svg class="iconify-icon text-xl"><use href="#pause"/></svg>';
+    } else {
+        video.pause();
+        btn.innerHTML = '<svg class="iconify-icon text-xl"><use href="#play"/></svg>';
+    }
+}
+
+// 静音切换
+function pubToggleVideoMute() {
+    const video = document.getElementById('pub-video-player-el');
+    const btn = document.getElementById('pub-video-mute-btn');
+    const volBar = document.getElementById('pub-video-volume-bar');
+    if (!video || !btn) return;
+    video.muted = !video.muted;
+    pubUpdateMuteBtn(video, btn, volBar);
+}
+
+function pubUpdateMuteBtn(video, btn, volBar) {
+    if (!btn) return;
+    if (video.muted || video.volume === 0) {
+        btn.innerHTML = '<svg class="iconify-icon text-xl"><use href="#volume_off"/></svg>';
+    } else if (video.volume < 0.5) {
+        btn.innerHTML = '<svg class="iconify-icon text-xl"><use href="#volume_medium"/></svg>';
+    } else {
+        btn.innerHTML = '<svg class="iconify-icon text-xl"><use href="#volume_high"/></svg>';
+    }
+    if (volBar) volBar.value = video.muted ? 0 : Math.round(video.volume * 100);
+}
+
+// 音量滑块
+function pubSetVideoVolume(val) {
+    const video = document.getElementById('pub-video-player-el');
+    const btn = document.getElementById('pub-video-mute-btn');
+    const volBar = document.getElementById('pub-video-volume-bar');
+    if (!video) return;
+    video.volume = val / 100;
+    video.muted = (val == 0);
+    pubUpdateMuteBtn(video, btn, volBar);
+    pubUpdateVolumeLabel(video);
+}
+
+// 视频进度拖动
+function pubSeekVideo(val) {
+    const video = document.getElementById('pub-video-player-el');
+    if (!video || !video.duration) return;
+    video.currentTime = (val / 100) * video.duration;
+}
+
+// 初始化视频控制条事件
+(function initPubVideoControls() {
+    const video = document.getElementById('pub-video-player-el');
+    const seekBar = document.getElementById('pub-video-seek-bar');
+    const timeLabel = document.getElementById('pub-video-time-label');
+    const playBtn = document.getElementById('pub-video-play-btn');
+    const muteBtn = document.getElementById('pub-video-mute-btn');
+    const volBar = document.getElementById('pub-video-volume-bar');
+    if (!video) return;
+    function fmt(t) {
+        if (isNaN(t)) return '00:00';
+        const m = Math.floor(t / 60), s = Math.floor(t % 60);
+        return String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+    }
+    video.addEventListener('timeupdate', function() {
+        if (seekBar && video.duration) seekBar.value = (video.currentTime / video.duration) * 100;
+        if (timeLabel) timeLabel.textContent = fmt(video.currentTime) + ' / ' + fmt(video.duration);
+    });
+    video.addEventListener('play', function() {
+        if (playBtn) playBtn.innerHTML = '<svg class="iconify-icon text-xl"><use href="#pause"/></svg>';
+    });
+    video.addEventListener('pause', function() {
+        if (playBtn) playBtn.innerHTML = '<svg class="iconify-icon text-xl"><use href="#play"/></svg>';
+    });
+    video.addEventListener('ended', function() {
+        if (playBtn) playBtn.innerHTML = '<svg class="iconify-icon text-xl"><use href="#replay"/></svg>';
+    });
+    video.addEventListener('volumechange', function() {
+        pubUpdateMuteBtn(video, muteBtn, volBar);
+        if (volBar) volBar.value = video.muted ? 0 : Math.round(video.volume * 100);
+    });
+    // 单击：延迟判断，如果短时间内有双击则取消
+    var _clickTimer = null;
+    video.addEventListener('click', function() {
+        if (_clickTimer) {
+            clearTimeout(_clickTimer);
+            _clickTimer = null;
+            return;
+        }
+        _clickTimer = setTimeout(function() {
+            _clickTimer = null;
+            pubToggleVideoPlay();
+        }, 250);
+    });
+    // 双击全屏
+    video.addEventListener('dblclick', function(e) {
+        if (_clickTimer) { clearTimeout(_clickTimer); _clickTimer = null; }
+        pubToggleVideoFullscreen();
+    });
+})();
+
+// 键盘导航（使用捕获阶段，确保全屏模式下也能拦截方向键）
+document.addEventListener('keydown', function(e) {
+    const iv = document.getElementById('pub-modal-image-viewer');
+    const vp = document.getElementById('pub-modal-video-player');
+    const dv = document.getElementById('pub-modal-doc-viewer');
+    if (iv.classList.contains('hidden') && vp.classList.contains('hidden') && dv.classList.contains('hidden')) return;
+    if (e.key === 'Escape') { pubCloseImageViewer(); pubCloseVideoPlayer(); pubCloseDocViewer(); return; }
+    // 视频播放时：方向键快退/快进/调音量
+    if (!vp.classList.contains('hidden')) {
+        const video = document.getElementById('pub-video-player-el');
+        if (e.key === 'ArrowLeft') { e.preventDefault(); video.currentTime = Math.max(0, video.currentTime - 5); return; }
+        if (e.key === 'ArrowRight') { e.preventDefault(); video.currentTime = Math.min(video.duration || Infinity, video.currentTime + 5); return; }
+        if (e.key === 'ArrowUp') { e.preventDefault(); pubAdjustVideoVolume(video, 0.05); return; }
+        if (e.key === 'ArrowDown') { e.preventDefault(); pubAdjustVideoVolume(video, -0.05); return; }
+    }
+    // 图片预览时：左右箭头切换图片
+    if (!iv.classList.contains('hidden')) {
+        if (e.key === 'ArrowLeft') { e.preventDefault(); pubNavigateMedia(-1); }
+        else if (e.key === 'ArrowRight') { e.preventDefault(); pubNavigateMedia(1); }
+    }
+}, true);
+
+// Init
+(async function() {
+    try {
+        const statusRes = await fetch('/api/public/status');
+        if (statusRes.ok) {
+            const status = await statusRes.json();
+            if (status.readOnly) {
+                document.getElementById('upload-area').classList.add('hidden');
+            }
+            // 如果没有共享目录，显示提示
+            if (status.directories && status.directories.length === 0) {
+                document.getElementById('file-list').innerHTML =
+                    '<div class="p-12 text-center text-slate-400"><p class="text-sm">暂无共享文件夹</p></div>';
+                document.getElementById('empty-state').classList.add('hidden');
+                return;
+            }
+        }
+    } catch (_) {}
+    loadFiles('');
+})();
+</script>
+
+<!-- 返回顶部 -->
+<button id="pub-back-to-top" onclick="window.scrollTo({top:0,behavior:'smooth'})" style="position:fixed;bottom:32px;right:32px;z-index:9999;background:#fff;border:none;border-radius:50%;width:48px;height:48px;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 16px rgba(0,0,0,0.12);transition:transform 0.2s,box-shadow 0.2s;" title="返回顶部">
+    <svg width="48" height="48" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg"><path d="M511.999488 0c-282.726196 0-511.999488 229.273292-511.999488 511.999488s229.273292 511.999488 511.999488 511.999488 511.999488-229.273292 511.999488-511.999488S794.725684 0 511.999488 0z m18.227188 759.192803c-5.529999 5.528975-13.312544 8.806429-21.196452 8.806429-7.782545 0-15.667478-3.27643-21.196453-8.806429-5.529999-5.631364-8.70404-13.517321-8.704041-21.402253 0-7.883909 3.174041-15.768842 8.704041-21.298842 5.528975-5.631364 13.413908-8.908817 21.196453-8.908817 7.883909 0 15.666454 3.27643 21.196452 8.908817 5.528975 5.529999 8.806429 13.414932 8.806429 21.298842 0 7.885957-3.27643 15.77089-8.806429 21.402253z m-21.196452-70.348018c-16.486585 0-29.901517-13.517321-29.901518-30.207659 0-16.588973 13.413908-30.10527 29.901518-30.10527 16.588973 0 30.002882 13.517321 30.002881 30.10527 0 16.690338-13.413908 30.207659-30.002881 30.207659z m185.957866-188.416213c-9.011206 0-16.998527-3.89076-22.528526-10.03509L544.87027 361.983032l-0.512966 214.937888s-5.734776 20.07018-30.002882 20.07018c-0.921496 0-1.94538 0-2.866876-0.102388-1.023884 0.102388-1.94538 0.102388-2.970288 0.102388-24.166741 0-29.900493-20.07018-29.900494-20.07018l0.511942-214.937888-127.589294 128.41045c-5.529999 6.143306-13.517321 10.03509-22.528526 10.03509-16.79375 0-30.311071-13.413908-30.311071-30.002882 0-8.806429 3.89076-16.79375 10.137478-22.322726l174.898893-176.127553s4.608503-4.608503 7.065825-7.168214a29.938377 29.938377 0 0 1 21.196453-8.806429c7.680156 0 15.360312 2.969264 21.196453 8.806429 2.457322 2.559711 7.065826 7.168214 7.065826 7.168214l174.898892 176.127553c6.246718 5.528975 10.137478 13.517321 10.137478 22.322726 0.002048 16.58795-13.515273 30.002882-30.309023 30.002882z" fill="#1296db"></path></svg>
+</button>
+<script>
+(function(){
+    const btn = document.getElementById('pub-back-to-top');
+    window.addEventListener('scroll', function(){ btn.classList.toggle('show', window.scrollY > 300); });
+})();
+</script>
+</body>
+</html>
