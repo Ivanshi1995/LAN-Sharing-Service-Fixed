@@ -10,6 +10,33 @@
     <ApplicationIcon>icon.ico</ApplicationIcon>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(PublishSingleFile)' == 'true' Or '$(PublishProfile)' == 'SingleFile'">
+    <DefineConstants>$(DefineConstants);SINGLE_FILE</DefineConstants>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <DebugType>embedded</DebugType>
+    <PublishTrimmed>false</PublishTrimmed>
+    <IsTransformWebConfigDisabled>true</IsTransformWebConfigDisabled>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(PublishSingleFile)' == 'true' Or '$(PublishProfile)' == 'SingleFile'">
+    <EmbeddedResource Include="lan-file-share-*.html;CDN\**\*;LAN Management\Bandwidth Management.html;icon.ico;用户导入模板.xlsx">
+      <LogicalName>LanFileShare.Assets/%(Identity)</LogicalName>
+    </EmbeddedResource>
+    <Content Update="**\*">
+      <CopyToPublishDirectory>Never</CopyToPublishDirectory>
+    </Content>
+    <None Update="lan-file-share-*.html;CDN\**\*;LAN Management\Bandwidth Management.html;icon.ico;settings.json;用户导入模板.xlsx">
+      <CopyToPublishDirectory>Never</CopyToPublishDirectory>
+    </None>
+  </ItemGroup>
+
+  <Target Name="ExcludeSingleFileDocumentation" AfterTargets="ComputeFilesToPublish" Condition="'$(PublishSingleFile)' == 'true'">
+    <ItemGroup>
+      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="'%(ResolvedFileToPublish.Extension)' == '.xml'" />
+    </ItemGroup>
+  </Target>
+
   <ItemGroup>
     <Compile Remove="bug\**" />
     <Compile Remove="bugupload\**" />

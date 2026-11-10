@@ -75,7 +75,7 @@ public class ImportUsersResult
 
 public class UserService
 {
-    private readonly string _usersPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "users.json");
+    private readonly string _usersPath = Path.Combine(AppPaths.DataDirectory, "users.json");
     private readonly object _lock = new();
     private readonly FileShareService _fileShare;
     private List<UserAccount> _users = new();

@@ -78,6 +78,11 @@ public class UpdateService
     public async Task<UpdateCheckResult> CheckForUpdatesAsync(CancellationToken ct = default)
     {
         var result = new UpdateCheckResult { CurrentVersion = AppVersion.Version };
+        if (AppPaths.IsSingleFile)
+        {
+            result.Error = "请从项目发布页下载新版程序，关闭后替换当前文件。";
+            return result;
+        }
         try
         {
             var remote = await FetchRemoteManifestAsync(ct);
@@ -106,6 +111,11 @@ public class UpdateService
     public async Task<UpdateApplyResult> ApplyUpdatesAsync(CancellationToken ct = default)
     {
         var result = new UpdateApplyResult();
+        if (AppPaths.IsSingleFile)
+        {
+            result.Error = "请从项目发布页下载新版程序，关闭后替换当前文件。";
+            return result;
+        }
         try
         {
             var remote = await FetchRemoteManifestAsync(ct);

@@ -4,7 +4,7 @@ namespace LanFileShare;
 
 public static class WebViewCacheHelper
 {
-    public static string AppBaseDir => AppDomain.CurrentDomain.BaseDirectory;
+    public static string AppBaseDir => AppPaths.DataDirectory;
 
     private static string UploadSessionsRoot => Path.Combine(AppBaseDir, ".upload-sessions");
 

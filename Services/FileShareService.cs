@@ -159,7 +159,7 @@ public class FileShareSettings
 
 public class FileShareService
 {
-    private readonly string _settingsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "settings.json");
+    private readonly string _settingsPath = Path.Combine(AppPaths.DataDirectory, "settings.json");
     private readonly ILogger<FileShareService> _logger;
     private readonly ConcurrentQueue<LogEntry> _logs = new();
     private readonly object _settingsLock = new();
@@ -182,10 +182,10 @@ public class FileShareService
     private readonly ConcurrentDictionary<string, UserSpeedTracker> _userSpeedTrackers = new();
     // IP 黑名单
     private readonly ConcurrentDictionary<string, DateTime> _blacklistIPs = new();
-    private readonly string _blacklistPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "blacklist.json");
+    private readonly string _blacklistPath = Path.Combine(AppPaths.DataDirectory, "blacklist.json");
     // 每用户带宽限速 (Mbps)
     private readonly ConcurrentDictionary<string, BandwidthLimitEntry> _bandwidthLimits = new();
-    private readonly string _bandwidthLimitPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "bandwidth_limits.json");
+    private readonly string _bandwidthLimitPath = Path.Combine(AppPaths.DataDirectory, "bandwidth_limits.json");
 
     public event Action<LogEntry>? OnLogAdded;
 
@@ -621,7 +621,7 @@ public class FileShareService
     {
         try
         {
-            var dir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "log");
+            var dir = Path.Combine(AppPaths.DataDirectory, "log");
             Directory.CreateDirectory(dir);
             var file = Path.Combine(dir, entry.Time.ToString("yyyyMMdd") + ".log");
             lock (_logFileLock)

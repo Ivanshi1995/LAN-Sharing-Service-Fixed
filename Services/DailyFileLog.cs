@@ -11,7 +11,7 @@ public static class LogSources
 public static class DailyFileLog
 {
     private static readonly object FileLock = new();
-    private static readonly string LogDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "log");
+    private static readonly string LogDir = Path.Combine(AppPaths.DataDirectory, "log");
 
     public static void Append(LogEntry entry)
     {

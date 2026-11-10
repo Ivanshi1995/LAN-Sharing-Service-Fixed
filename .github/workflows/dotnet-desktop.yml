@@ -33,10 +33,29 @@ jobs:
         run: dotnet run --project tests/Regression/Regression.csproj -c Release --no-restore -- "${{ runner.temp }}/verification.json"
       - name: 验证文件校验脚本
         run: node --test tests/fingerprint.test.js
+      - name: 发布单文件 EXE
+        run: dotnet publish LanFileShare.csproj -p:PublishProfile=SingleFile -o "${{ runner.temp }}/singlefile"
+      - name: 验证单文件 EXE
+        shell: pwsh
+        run: |
+          $exe = "${{ runner.temp }}/singlefile/LanFileShare.exe"
+          $report = "${{ runner.temp }}/singlefile-verification.json"
+          $data = "${{ runner.temp }}/singlefile-data"
+          if (@(Get-ChildItem "${{ runner.temp }}/singlefile" -File).Count -ne 1) { throw "发布目录必须只有一个 EXE" }
+          $process = Start-Process -FilePath $exe -ArgumentList @('--smoke-test', ('"' + $report + '"'), ('"' + $data + '"')) -WindowStyle Hidden -PassThru
+          if (!$process.WaitForExit(60000)) { $process.Kill(); throw "单文件验证超时" }
+          if ($process.ExitCode -ne 0) { Get-Content $report; throw "单文件验证失败" }
+      - name: 保存单文件程序
+        uses: actions/upload-artifact@v4
+        with:
+          name: LanFileShare-win-x64
+          path: ${{ runner.temp }}/singlefile/LanFileShare.exe
       - name: 保存验证记录
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: verification-results
-          path: ${{ runner.temp }}/verification.json
+          path: |
+            ${{ runner.temp }}/verification.json
+            ${{ runner.temp }}/singlefile-verification.json
           if-no-files-found: warn

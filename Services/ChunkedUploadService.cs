@@ -50,7 +50,7 @@ public class ChunkedUploadService : IDisposable
     {
         _service = service;
         _access = access;
-        _sessionsRoot = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, ".upload-sessions");
+        _sessionsRoot = Path.Combine(AppPaths.DataDirectory, ".upload-sessions");
         Directory.CreateDirectory(_sessionsRoot);
         CleanupExpiredSessions();
         _cleanup = new System.Threading.Timer(_ => CleanupExpiredSessions(), null, TimeSpan.FromMinutes(10), TimeSpan.FromMinutes(10));

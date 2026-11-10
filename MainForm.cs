@@ -12,6 +12,7 @@ namespace LanFileShare.UI;
 public partial class MainForm : Form
 {
     private WebView2 _webView = null!;
+    private readonly bool _useBrowserFallback;
     private SplashPanel _splash = null!;
     private NotifyIcon _trayIcon = null!;
     private ContextMenuStrip _trayMenu = null!;
@@ -33,12 +34,14 @@ public partial class MainForm : Form
     private const double UiDesignWidth = 896;
     private double _uiBaseClientHeight;
 
-    public MainForm(string serverUrl, bool minimizeToTray, Icon appIcon, FileShareSettings settings, FileShareService? service = null)
+    public MainForm(string serverUrl, bool minimizeToTray, Icon appIcon, FileShareSettings settings, FileShareService? service = null, bool forceBrowser = false)
     {
         _serverUrl = serverUrl;
         _minimizeToTray = minimizeToTray;
         _appIcon = appIcon;
         _service = service;
+        try { _useBrowserFallback = forceBrowser || string.IsNullOrEmpty(CoreWebView2Environment.GetAvailableBrowserVersionString()); }
+        catch { _useBrowserFallback = true; }
 
         this.Text = $"LanFileShare 服务端 {AppVersion.Version}";
         this.MinimumSize = new Size(917, 642);
@@ -66,7 +69,7 @@ public partial class MainForm : Form
     private void OnHandleCreated(object? sender, EventArgs e)
     {
         this.HandleCreated -= OnHandleCreated;
-        InitializeWebView();
+        if (!_useBrowserFallback) InitializeWebView();
     }
 
     private void InitializeWebView()
@@ -181,6 +184,11 @@ public partial class MainForm : Form
     protected override async void OnLoad(EventArgs e)
     {
         base.OnLoad(e);
+        if (_useBrowserFallback)
+        {
+            await ShowBrowserFallbackAsync();
+            return;
+        }
 
         // 确保 WebView2 控件已创建
         if (_webView == null)
@@ -189,7 +197,7 @@ public partial class MainForm : Form
         }
 
         // 在初始化前先清理可能的锁文件，防止上次进程残留导致锁定
-        var baseCache = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "webview_cache");
+        var baseCache = Path.Combine(AppPaths.DataDirectory, "webview_cache");
         WebViewCacheHelper.DeleteOrphanCacheDirectories();
         CleanWebViewLockFiles(baseCache);
         _splash.Progress = 15;
@@ -239,23 +247,14 @@ public partial class MainForm : Form
             return;
         }
 
-        var newCache = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, $"webview_cache_{DateTime.Now:yyyyMMddHHmmss}");
+        var newCache = Path.Combine(AppPaths.DataDirectory, $"webview_cache_{DateTime.Now:yyyyMMddHHmmss}");
         if (await TryInitAsync(newCache, 35))
         {
             StartCacheMonitor();
             return;
         }
 
-        _splash.Visible = false;
-        // 显示详细错误信息
-        var errorMsg = $"WebView2 初始化失败\n\n" +
-                      $"错误类型: {lastException?.GetType().Name}\n" +
-                      $"错误信息: {lastException?.Message}\n" +
-                      $"缓存目录: {lastCacheDir}\n\n" +
-                      $"请确保已安装 Microsoft Edge WebView2 Runtime。\n" +
-                      $"如问题持续，请手动删除程序目录下的 webview_cache 文件夹后重试。";
-        
-        MessageBox.Show(errorMsg, "初始化错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        await ShowBrowserFallbackAsync();
     }
 
     private static void CleanWebViewLockFiles(string cacheDir)
@@ -280,6 +279,27 @@ public partial class MainForm : Form
             if (File.Exists(singletonCookie)) File.Delete(singletonCookie);
         }
         catch { }
+    }
+
+    private async Task ShowBrowserFallbackAsync()
+    {
+        if (_webView != null) { Controls.Remove(_webView); _webView.Dispose(); _webView = null!; }
+        if (_splash != null) _splash.Visible = false;
+        var panel = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, Padding = new Padding(32) };
+        panel.Controls.Add(new Label { AutoSize = true, Text = "文件共享服务正在运行。", Font = new Font(Font.FontFamily, 18) });
+        panel.Controls.Add(new Label { AutoSize = true, Text = "管理页面：在浏览器中设置共享目录和用户。" });
+        panel.Controls.Add(new Label { AutoSize = true, Text = "关闭窗口：停止文件共享服务。" });
+        var button = new Button { AutoSize = true, Text = "打开管理页面", Padding = new Padding(12) };
+        void OpenBrowser()
+        {
+            try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(_serverUrl) { UseShellExecute = true }); }
+            catch { MessageBox.Show("无法打开浏览器。请在浏览器中打开 " + _serverUrl, "打开管理页面"); }
+        }
+        button.Click += (_, _) => OpenBrowser();
+        panel.Controls.Add(button);
+        Controls.Add(panel); panel.BringToFront();
+        await WaitForServerReadyAsync(_serverUrl);
+        if (!_isExiting) OpenBrowser();
     }
 
     private void StartCacheMonitor()
@@ -566,7 +586,7 @@ public partial class MainForm : Form
         System.Threading.Thread.Sleep(500);
 
         // 清理锁文件，为下次启动做准备
-        var cacheDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "webview_cache");
+        var cacheDir = Path.Combine(AppPaths.DataDirectory, "webview_cache");
         CleanWebViewLockFiles(cacheDir);
     }
 

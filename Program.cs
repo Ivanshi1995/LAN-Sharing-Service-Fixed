@@ -28,7 +28,7 @@ public class Program
     private static ChatStorageService? _chatStorage;
     private static readonly string _adminToken = Guid.NewGuid().ToString("N");
 
-    private static string AppBaseDir => AppDomain.CurrentDomain.BaseDirectory;
+    private static string AppBaseDir => AppPaths.DataDirectory;
 
     private static int LoadListenPort()
     {
@@ -110,6 +110,11 @@ public class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        if (args.Length >= 3 && args[0] == "--smoke-test")
+        {
+            Environment.ExitCode = SingleFileSmokeTest.RunAsync(args[1], args[2]).GetAwaiter().GetResult();
+            return;
+        }
         var isRestart = args.Any(a => string.Equals(a, "--restart", StringComparison.OrdinalIgnoreCase));
         if (!TryAcquireSingleInstanceMutex(isRestart, out var mutex) || mutex == null)
         {
@@ -126,6 +131,8 @@ public class Program
 
     private static void RunApplication(string[] args)
     {
+        var dataArgument = Array.IndexOf(args, "--data-dir");
+        AppPaths.Initialize(dataArgument >= 0 && dataArgument + 1 < args.Length ? args[dataArgument + 1] : null);
         Directory.SetCurrentDirectory(AppBaseDir);
         ApplicationConfiguration.Initialize();
 
@@ -135,8 +142,9 @@ public class Program
 
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions
         {
-            Args = args,
-            WebRootPath = Path.Combine(AppBaseDir, "wwwroot")
+            Args = Array.Empty<string>(),
+            ContentRootPath = AppBaseDir,
+            WebRootPath = Path.Combine(AppPaths.ResourceDirectory, "wwwroot")
         });
         builder.WebHost.UseKestrel(options =>
         {
@@ -209,7 +217,7 @@ public class Program
         _cts = new CancellationTokenSource();
         _serverTask = Task.Run(() => app.RunAsync(_cts.Token));
 
-        using var form = new MainForm(localAdminUrl, _service.Settings.MinimizeToTray, LoadIcon(), _service.Settings);
+        using var form = new MainForm(localAdminUrl, _service.Settings.MinimizeToTray, LoadIcon(), _service.Settings, _service, args.Contains("--browser"));
         _mainForm = form;
         form.Shown += (_, _) =>
         {
@@ -235,7 +243,29 @@ public class Program
         try { _serverTask?.Wait(TimeSpan.FromSeconds(5)); } catch { }
     }
 
-    private static void ConfigureApp(WebApplication app)
+    internal static WebApplication CreateSmokeTestServer()
+    {
+        var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+        {
+            Args = Array.Empty<string>(), ContentRootPath = AppBaseDir
+        });
+        builder.Logging.ClearProviders();
+        builder.WebHost.UseUrls("http://127.0.0.1:0");
+        builder.Services.AddSingleton<FileShareService>();
+        builder.Services.AddSingleton<UserService>();
+        builder.Services.AddSingleton<AuthService>();
+        builder.Services.AddSingleton<UpdateService>();
+        builder.Services.AddSingleton<UploadAccessPolicy>();
+        builder.Services.AddSingleton<ChunkedUploadService>();
+        builder.Services.AddSingleton<ConcurrentBag<StreamWriter>>();
+        var app = builder.Build();
+        _service = app.Services.GetRequiredService<FileShareService>();
+        _sseClients = app.Services.GetRequiredService<ConcurrentBag<StreamWriter>>();
+        ConfigureApp(app);
+        return app;
+    }
+
+    internal static void ConfigureApp(WebApplication app)
     {
         var service = _service!;
         var sseClients = _sseClients!;
@@ -265,7 +295,7 @@ public class Program
         };
 
         // 只公开离线资源；配置、账户和共享文件必须经过各自 API。
-        app.UseLanStaticAssets(AppBaseDir);
+        app.UseLanStaticAssets(AppPaths.ResourceDirectory);
 
         // 全局：所有 API 响应禁用缓存
         app.Use(async (HttpContext ctx, RequestDelegate next) =>
@@ -281,7 +311,7 @@ public class Program
         {
             if (!_fileShareEnabled) { ctx.Response.StatusCode = 503; ctx.Response.ContentType = "text/plain; charset=utf-8"; await ctx.Response.WriteAsync("文件共享服务已暂停"); return; }
             ctx.Response.ContentType = "text/html; charset=utf-8";
-            await ctx.Response.SendFileAsync(Path.Combine(AppBaseDir, "lan-file-share-client.html"));
+            await ctx.Response.SendFileAsync(Path.Combine(AppPaths.ResourceDirectory, "lan-file-share-client.html"));
         });
 
         // 管理页面（仅管理端/管理员可访问）
@@ -294,7 +324,7 @@ public class Program
             if (isLocal)
             {
                 ctx.Response.ContentType = "text/html; charset=utf-8";
-                await ctx.Response.SendFileAsync(Path.Combine(AppBaseDir, "lan-file-share-server.html"));
+                await ctx.Response.SendFileAsync(Path.Combine(AppPaths.ResourceDirectory, "lan-file-share-server.html"));
                 return;
             }
 
@@ -307,7 +337,7 @@ public class Program
                 {
                     service.AddLog("INFO", "服务端", $"管理员远程访问 {ctx.Connection.RemoteIpAddress} ({session.Username})");
                     ctx.Response.ContentType = "text/html; charset=utf-8";
-                    await ctx.Response.SendFileAsync(Path.Combine(AppBaseDir, "lan-file-share-server.html"));
+                    await ctx.Response.SendFileAsync(Path.Combine(AppPaths.ResourceDirectory, "lan-file-share-server.html"));
                     return;
                 }
             }
@@ -328,7 +358,7 @@ public class Program
             if (!_fileShareEnabled) { ctx.Response.StatusCode = 503; ctx.Response.ContentType = "text/plain; charset=utf-8"; await ctx.Response.WriteAsync("文件共享服务已暂停"); return; }
             if (!service.Settings.PublicShareEnabled) { ctx.Response.StatusCode = 403; ctx.Response.ContentType = "text/plain; charset=utf-8"; await ctx.Response.WriteAsync("公共共享已关闭"); return; }
             ctx.Response.ContentType = "text/html; charset=utf-8";
-            await ctx.Response.SendFileAsync(Path.Combine(AppBaseDir, "lan-file-share-public.html"));
+            await ctx.Response.SendFileAsync(Path.Combine(AppPaths.ResourceDirectory, "lan-file-share-public.html"));
         });
 
         // 带宽管理页面（仅管理端/管理员可访问）
@@ -340,7 +370,7 @@ public class Program
             if (isLocal && ctx.Request.Query.TryGetValue("admin", out var token) && token == _adminToken)
             {
                 ctx.Response.ContentType = "text/html; charset=utf-8";
-                await ctx.Response.SendFileAsync(Path.Combine(AppBaseDir, "LAN Management", "Bandwidth Management.html"));
+                await ctx.Response.SendFileAsync(Path.Combine(AppPaths.ResourceDirectory, "LAN Management", "Bandwidth Management.html"));
                 return;
             }
 
@@ -353,7 +383,7 @@ public class Program
                 {
                     service.AddLog("INFO", "服务端", $"管理员远程访问带宽管控 {ctx.Connection.RemoteIpAddress} ({session.Username})");
                     ctx.Response.ContentType = "text/html; charset=utf-8";
-                    await ctx.Response.SendFileAsync(Path.Combine(AppBaseDir, "LAN Management", "Bandwidth Management.html"));
+                    await ctx.Response.SendFileAsync(Path.Combine(AppPaths.ResourceDirectory, "LAN Management", "Bandwidth Management.html"));
                     return;
                 }
             }
@@ -1008,7 +1038,7 @@ public class Program
         {
             try
             {
-                var logDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "log");
+                var logDir = Path.Combine(AppPaths.DataDirectory, "log");
                 Directory.CreateDirectory(logDir);
                 if (OperatingSystem.IsWindows()) System.Diagnostics.Process.Start("explorer.exe", $"\"{logDir}\"");
                 else if (OperatingSystem.IsMacOS()) System.Diagnostics.Process.Start("open", logDir);
@@ -1026,7 +1056,7 @@ public class Program
         {
             try
             {
-                var bugUploaderPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "bugupload", "BugUploader.exe");
+                var bugUploaderPath = Path.Combine(AppPaths.DataDirectory, "bugupload", "BugUploader.exe");
                 if (!File.Exists(bugUploaderPath))
                     return Results.Json(new { success = false, error = $"BugUploader.exe 未找到: {bugUploaderPath}" });
                 System.Diagnostics.Process.Start(bugUploaderPath);
@@ -1326,7 +1356,7 @@ public class Program
         app.MapGet("/api/users/template", (HttpContext ctx) =>
         {
             if (!IsAdminRequest(ctx, authService, userService)) return Results.Json(new { error = "Forbidden" }, statusCode: 403);
-            var templatePath = Path.Combine(AppContext.BaseDirectory, "用户导入模板.xlsx");
+            var templatePath = Path.Combine(AppPaths.ResourceDirectory, "用户导入模板.xlsx");
             if (!File.Exists(templatePath)) return Results.Json(new { success = false, error = "模板文件不存在" }, statusCode: 404);
             var bytes = File.ReadAllBytes(templatePath);
             return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "用户导入模板.xlsx");
@@ -3098,7 +3128,7 @@ public class Program
     {
         try
         {
-            var iconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "icon.ico");
+            var iconPath = Path.Combine(AppPaths.ResourceDirectory, "icon.ico");
             if (File.Exists(iconPath))
                 return new Icon(iconPath);
         }

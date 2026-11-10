@@ -1,12 +1,39 @@
 # 局域网文件共享服务修复版
 
-本仓库保存 Windows 局域网文件共享工具的修复版。
-本次修复用于处理五项一级安全与可靠性问题。
+本工具通过一个 EXE 共享电脑中的文件。
+手机和其他电脑通过浏览器访问共享文件。
 使用前请确认三项条件：
 
-1. 安装 .NET 8 SDK 和 WebView2 Runtime。
-2. 更新后刷新客户端页面。
-3. 重新开始旧版本尚未完成的上传。
+1. 使用 Windows 10 或 11 的 64 位电脑。
+2. 将访问设备连接到同一局域网。
+3. 共享期间保持电脑和程序运行。
+
+## 下载与使用
+
+[下载单文件 EXE](https://github.com/Ivanshi1995/LAN-Sharing-Service-Fixed/releases/latest/download/LanFileShare.exe)。
+仓库为私有仓库，下载前需要登录获授权的账号。
+
+1. 双击 `LanFileShare.exe`。
+2. 开启“公共共享”中的“启用公共共享”。
+3. 点击“浏览”，选择共享文件夹。
+4. 在其他设备上打开公共共享地址。
+
+如果需要上传文件，将公共共享改为“读写”。
+公共共享无需登录，请只选择允许共享的目录。
+如果需要账户控制，在管理页面添加用户。
+再为该用户设置密码、共享目录和读写权限。
+
+EXE 已包含 .NET 运行环境和网页资源。
+如果电脑缺少 WebView2，程序改用默认浏览器。
+关闭程序会停止共享。
+
+设置、账户和聊天数据保存在以下目录：
+
+`%LOCALAPPDATA%\LanFileShare-Fixed`
+
+更新时，退出程序后替换 EXE。
+保留上述目录即可保留设置和账户。
+单文件版不使用原项目的增量更新。
 
 代码来源：[原始项目](https://github.com/tanbaolong79/LAN-Sharing-Service)。
 修复基于原始提交 `a04b5cf20986cec9509fb2045b0355fbecaec026`。
@@ -28,14 +55,21 @@
 完成上传时，目标磁盘需额外容纳一份文件。
 如果空间不足，代码拒绝发布文件。
 
-## 编译与启动
+## 从源码编译
+
+仅开发者需要安装 .NET 8 SDK。
+普通用户直接下载上面的 EXE。
 
 1. 在仓库根目录打开终端。
 2. 执行 `dotnet build LanFileShare.csproj -c Release`。
 3. 打开 `bin/Release/net8.0-windows/LanFileShare.exe`。
 
-如果缺少 .NET 8 桌面运行时，程序无法启动。
-如需部署，请同时保留生成目录内的资源和依赖。
+上述命令生成依赖本机运行环境的开发版本。
+单文件发布命令为：
+
+`dotnet publish LanFileShare.csproj -p:PublishProfile=SingleFile -o publish`
+
+发布目录仅包含 `LanFileShare.exe`。
 
 ## 验证
 
@@ -44,6 +78,8 @@
 | Windows 发布配置重新编译 | 通过，0 个错误，2 条原有空值警告。 |
 | 后端与真实 HTTP 接口场景 | 34 项通过，0 项失败。 |
 | 文件校验脚本 | 14 项通过，0 项失败。 |
+| 最终 EXE 的接口与资源验证 | 23 项通过，0 项失败。 |
+| EXE 重启后的数据保存 | 通过。 |
 
 验证日期为 2026-11-10。
 验证范围和限制见[验证说明](docs/verification.md)。
@@ -64,3 +100,4 @@
 |---|---|---|
 | 2026-11-10 | 修复五项一级问题，添加回归测试。 | 修复提交 `7b0bee99be93d7eeec52793542fcdf6ea4604b4a` 及其前序提交。 |
 | 2026-11-10 | 新仓库添加说明和自动验证。 | `.github/workflows/dotnet-desktop.yml`。 |
+| 2026-11-10 | 发布 v2.4.1 单文件版。 | `Properties/PublishProfiles/SingleFile.pubxml`。 |
