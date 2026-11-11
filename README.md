@@ -82,6 +82,7 @@ EXE 已包含 .NET 运行环境和网页资源。
 | Windows 发布配置重新编译 | 通过，0 个错误，2 条原有空值警告。 |
 | 后端与真实 HTTP 接口场景 | 34 项通过，0 项失败。 |
 | 文件校验脚本 | 14 项通过，0 项失败。 |
+| 中断下载后的完整性 | 1 项通过，0 项失败。 |
 | 最终 EXE 的接口与资源验证 | 23 项通过，0 项失败。 |
 | EXE 重启后的数据保存 | 通过。 |
 
@@ -96,7 +97,7 @@ EXE 已包含 .NET 运行环境和网页资源。
 
 1. 执行 `dotnet build LanFileShare.csproj -c Release`。
 2. 执行 `dotnet run --project tests/Regression/Regression.csproj -c Release`。
-3. 执行 `node --test tests/fingerprint.test.js`。
+3. 执行 `node --test tests/fingerprint.test.js tests/download-retry.test.js`。
 
 ## 变更记录
 

@@ -32,7 +32,7 @@ jobs:
       - name: 验证后端和接口
         run: dotnet run --project tests/Regression/Regression.csproj -c Release --no-restore -- "${{ runner.temp }}/verification.json"
       - name: 验证文件校验脚本
-        run: node --test tests/fingerprint.test.js
+        run: node --test tests/fingerprint.test.js tests/download-retry.test.js
       - name: 发布单文件 EXE
         run: dotnet publish LanFileShare.csproj -p:PublishProfile=SingleFile -o "${{ runner.temp }}/singlefile"
       - name: 验证单文件 EXE

@@ -334,7 +334,7 @@
         <span class="text-sm font-medium text-slate-700">下载进度</span>
         <div class="flex items-center gap-2">
             <span class="text-sm text-slate-500" id="dl-percent">0%</span>
-            <button class="text-xs text-blue-600 hover:text-blue-800 underline" id="btn-dl-resume" onclick="resumeDownload()" style="display:none">继续</button>
+            <button class="text-xs text-blue-600 hover:text-blue-800 underline" id="btn-dl-resume" onclick="resumeDownload()" style="display:none">重新下载</button>
             <button class="text-xs text-red-500 hover:text-red-700 underline" id="btn-dl-cancel" onclick="cancelDownload()">取消</button>
         </div>
     </div>
@@ -2745,7 +2745,7 @@ function escHtml(s) {
     return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-// ========== 下载管理（支持断点续传） ==========
+// ========== 下载管理 ==========
 const DOWNLOAD_STATE_KEY = 'lanfs_dl_states';
 let _dlAbortController = null;
 let _dlCurrentPath = '';
@@ -2834,14 +2834,13 @@ async function downloadFile(path, isDir) {
 
     showDownloadPanel(fileName);
 
-    // 检查是否有未完成的下载状态（断点续传）
+    // 页面只保存了进度，没有保存之前收到的字节，因此重试必须重新下载完整文件。
     const savedStates = getDownloadStates();
     const savedState = savedStates[path];
-    let resumeFrom = 0;
     if (savedState && savedState.url === url && savedState.received > 0 && savedState.total > 0 && savedState.received < savedState.total) {
-        resumeFrom = savedState.received;
-        document.getElementById('dl-status').innerText = '从 ' + formatSize(resumeFrom) + ' 处续传...';
+        document.getElementById('dl-status').innerText = '正在重新下载完整文件...';
     }
+    saveDownloadState(path, null);
 
     try {
         // HEAD 请求获取文件大小
@@ -2853,14 +2852,7 @@ async function downloadFile(path, isDir) {
 
         _dlTotalBytes = total;
 
-        // 发起下载请求（支持 Range 断点续传）
-        const fetchHeaders = {};
-        if (resumeFrom > 0 && total > 0) {
-            fetchHeaders['Range'] = 'bytes=' + resumeFrom + '-';
-        }
-
         const resp = await fetch(url, {
-            headers: fetchHeaders,
             signal: _dlAbortController.signal,
             ...fetchAuth
         });
@@ -2884,7 +2876,7 @@ async function downloadFile(path, isDir) {
             _dlTotalBytes = total;
         }
 
-        _dlReceivedBytes = resumeFrom;
+        _dlReceivedBytes = 0;
         updateDownloadProgress(_dlReceivedBytes, total);
 
         // 流式读取
@@ -2896,7 +2888,7 @@ async function downloadFile(path, isDir) {
             _dlReceivedBytes += value.length;
             updateDownloadProgress(_dlReceivedBytes, total || (_dlReceivedBytes + (_dlTotalBytes > 0 ? 0 : 0)));
 
-            // 实时保存状态用于断点续传
+            // 保存进度，以便页面提示未完成的下载。
             saveDownloadState(path, {
                 url: url,
                 received: _dlReceivedBytes,
@@ -2927,7 +2919,7 @@ async function downloadFile(path, isDir) {
 
     } catch (err) {
         if (err.name === 'AbortError') {
-            // 用户取消 → 保存进度用于续传
+            // 用户取消后保留进度提示，重试时重新下载完整文件。
             if (_dlReceivedBytes > 0) {
                 saveDownloadState(path, {
                     url: url,
@@ -2936,16 +2928,16 @@ async function downloadFile(path, isDir) {
                     fileName: fileName,
                     time: Date.now()
                 });
-                document.getElementById('dl-status').innerText = '⏸ 已暂停 (' + formatSize(_dlReceivedBytes) + ')';
+                document.getElementById('dl-status').innerText = '已中断，再次下载将从头开始';
                 document.getElementById('btn-dl-resume').style.display = '';
                 document.getElementById('btn-dl-cancel').style.display = 'none';
-                showToast('下载已暂停，可稍后继续');
+                showToast('下载已中断，可点击“重新下载”');
             } else {
                 saveDownloadState(path, null);
                 hideDownloadPanel();
             }
         } else {
-            // 网络错误 → 保存进度用于续传
+            // 网络错误后允许用户重新下载完整文件。
             if (_dlReceivedBytes > 0) {
                 saveDownloadState(path, {
                     url: url,
@@ -2957,7 +2949,7 @@ async function downloadFile(path, isDir) {
                 document.getElementById('dl-status').innerText = '⚠ 已中断 (' + formatSize(_dlReceivedBytes) + ')';
                 document.getElementById('btn-dl-resume').style.display = '';
                 document.getElementById('btn-dl-cancel').style.display = 'none';
-                showToast('下载中断: ' + err.message + '，可稍后继续');
+                showToast('下载中断，请点击“重新下载”');
             } else {
                 saveDownloadState(path, null);
                 hideDownloadPanel();
@@ -2978,7 +2970,7 @@ function cancelDownload() {
 
 function resumeDownload() {
     if (_dlCurrentPath) {
-        logAction('继续下载', _dlCurrentPath);
+        logAction('重新下载', _dlCurrentPath);
         if (_dlAbortController) _dlAbortController.abort();
         downloadFile(_dlCurrentPath, false);
     }
@@ -3001,7 +2993,7 @@ function resumeDownload() {
         }
         if (hasValid) {
             setTimeout(() => {
-                showToast('检测到未完成的下载，可在文件列表中点击重新下载以继续');
+                showToast('检测到未完成的下载，再次下载将从头开始');
             }, 1500);
         }
     }
