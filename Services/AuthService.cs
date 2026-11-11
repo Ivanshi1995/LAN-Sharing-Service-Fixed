@@ -71,6 +71,11 @@ public class AuthService
     {
         if (!ctx.Request.Cookies.TryGetValue(SessionCookieName, out var token) || string.IsNullOrEmpty(token))
             return null;
+        return GetActiveSession(token);
+    }
+
+    internal ClientSession? GetActiveSession(string token)
+    {
         if (!_sessions.TryGetValue(token, out var session)) return null;
         if (session.ExpiresAt <= DateTime.UtcNow)
         {

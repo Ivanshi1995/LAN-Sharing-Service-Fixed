@@ -351,6 +351,73 @@ internal static class EntryPoint
                 Check((await download.Content.ReadAsByteArrayAsync()).SequenceEqual(page));
             }
         });
+        await Run("交互预览只加载授权目录内的资源", async () =>
+        {
+            var user = NewUser();
+            const string entry = "pages/入口.html";
+            foreach (var folder in new[] { user.Folders[0], publicFirst })
+            {
+                var pageFolder = Directory.CreateDirectory(Path.Combine(folder, "pages"));
+                await File.WriteAllTextAsync(Path.Combine(folder, entry), "<!doctype html><script src=app.mjs></script>");
+                await File.WriteAllTextAsync(Path.Combine(pageFolder.FullName, "app.mjs"), "export const value = 1;");
+                await File.WriteAllTextAsync(Path.Combine(folder, "outside.css"), "body {}");
+            }
+
+            var privateIssue = "/api/files/preview/html?path=" + Uri.EscapeDataString("__folder__/0/" + entry);
+            using var unauthorized = await http.GetAsync(privateIssue);
+            Check(unauthorized.StatusCode == HttpStatusCode.Unauthorized);
+            using var login = await http.PostAsJsonAsync("/api/auth/login", new { username = user.Username, password = "test-password" });
+            Check(login.IsSuccessStatusCode);
+            using var client = new HttpClient(new HttpClientHandler { UseCookies = false }) { BaseAddress = http.BaseAddress };
+            client.DefaultRequestHeaders.Add("Cookie", login.Headers.GetValues("Set-Cookie").Single().Split(';')[0]);
+
+            var publicIssue = "/api/public/files/preview/html?path=" + Uri.EscapeDataString(firstPublicPath + "/" + entry);
+            var privatePage = (await client.GetFromJsonAsync<JsonElement>(privateIssue)).GetProperty("url").GetString()!;
+            var publicPage = (await http.GetFromJsonAsync<JsonElement>(publicIssue)).GetProperty("url").GetString()!;
+            foreach (var page in new[] { privatePage, publicPage })
+            {
+                var assets = page[..(page.LastIndexOf('/') + 1)];
+                using var frameRequest = new HttpRequestMessage(HttpMethod.Get, page);
+                frameRequest.Headers.Add("Sec-Fetch-Dest", "iframe");
+                using var frame = await http.SendAsync(frameRequest);
+                Check(frame.IsSuccessStatusCode);
+                var policy = frame.Headers.GetValues("Content-Security-Policy").Single();
+                Check(policy.StartsWith("sandbox allow-scripts;") && policy.Contains(assets));
+                Check(!policy.Contains("allow-same-origin"));
+                using var lanFrameRequest = new HttpRequestMessage(HttpMethod.Get, page);
+                lanFrameRequest.Headers.Referrer = http.BaseAddress;
+                using var lanFrame = await http.SendAsync(lanFrameRequest);
+                Check(lanFrame.Headers.GetValues("Content-Security-Policy").Single() == policy);
+                using var direct = await http.GetAsync(page);
+                Check(direct.Headers.GetValues("Content-Security-Policy").Single().StartsWith("sandbox;"));
+
+                using var moduleRequest = new HttpRequestMessage(HttpMethod.Get, assets + "app.mjs");
+                moduleRequest.Headers.Add("Origin", "null");
+                using var module = await http.SendAsync(moduleRequest);
+                Check(module.Content.Headers.ContentType?.MediaType == "text/javascript");
+                Check(module.Headers.GetValues("Access-Control-Allow-Origin").Single() == "null");
+                Check(await module.Content.ReadAsStringAsync() == "export const value = 1;");
+
+                using var traversal = await http.GetAsync(assets + "%2e%2e%5coutside.css");
+                Check(traversal.StatusCode == HttpStatusCode.NotFound);
+                using var forged = await http.GetAsync("/api/html-preview/invalid/app.mjs");
+                Check(forged.StatusCode == HttpStatusCode.NotFound);
+            }
+
+            using var logout = await client.PostAsync("/api/auth/logout", null);
+            Check(logout.IsSuccessStatusCode);
+            using var expired = await http.GetAsync(privatePage);
+            Check(expired.StatusCode == HttpStatusCode.Unauthorized);
+
+            var originalFolders = Files.Settings.PublicShareDirectories;
+            try
+            {
+                Files.Settings.PublicShareDirectories = [publicSecond];
+                using var revoked = await http.GetAsync(publicPage);
+                Check(revoked.StatusCode == HttpStatusCode.NotFound);
+            }
+            finally { Files.Settings.PublicShareDirectories = originalFolders; }
+        });
         await Run("真实接口验证上传并下载", async () =>
         {
             var user = NewUser();

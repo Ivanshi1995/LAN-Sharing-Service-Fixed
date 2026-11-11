@@ -307,11 +307,14 @@ public class Program
             await next(ctx);
         });
 
+        MapHtmlPreviewEndpoints(app, service, authService, userService);
+
         // HTML pages – 登录页（所有人可访问），管理页仅限本机 WebView2 携带有效 token 访问
         app.MapGet("/", async (HttpContext ctx) =>
         {
             if (!_fileShareEnabled) { ctx.Response.StatusCode = 503; ctx.Response.ContentType = "text/plain; charset=utf-8"; await ctx.Response.WriteAsync("文件共享服务已暂停"); return; }
             ctx.Response.ContentType = "text/html; charset=utf-8";
+            RestrictPreviewFrames(ctx);
             await ctx.Response.SendFileAsync(Path.Combine(AppPaths.ResourceDirectory, "lan-file-share-client.html"));
         });
 
@@ -359,6 +362,7 @@ public class Program
             if (!_fileShareEnabled) { ctx.Response.StatusCode = 503; ctx.Response.ContentType = "text/plain; charset=utf-8"; await ctx.Response.WriteAsync("文件共享服务已暂停"); return; }
             if (!service.Settings.PublicShareEnabled) { ctx.Response.StatusCode = 403; ctx.Response.ContentType = "text/plain; charset=utf-8"; await ctx.Response.WriteAsync("公共共享已关闭"); return; }
             ctx.Response.ContentType = "text/html; charset=utf-8";
+            RestrictPreviewFrames(ctx);
             await ctx.Response.SendFileAsync(Path.Combine(AppPaths.ResourceDirectory, "lan-file-share-public.html"));
         });
 
@@ -3272,6 +3276,100 @@ public class Program
     {
         var ext = Path.GetExtension(path);
         return _mimeMap.TryGetValue(ext, out var mime) ? mime : "application/octet-stream";
+    }
+
+    private static void RestrictPreviewFrames(HttpContext ctx)
+    {
+        // Limit frame navigations, including those initiated by the preview's own script.
+        var origin = HtmlPreviewService.GetOrigin(ctx.Request);
+        var frameSource = origin.HostNameType == UriHostNameType.IPv6
+            ? "'self'"
+            : origin.GetLeftPart(UriPartial.Authority) + HtmlPreviewService.ResourcePrefix;
+        ctx.Response.Headers["Content-Security-Policy"] =
+            $"frame-src {frameSource}; object-src 'none'";
+    }
+
+    private static void MapHtmlPreviewEndpoints(WebApplication app, FileShareService service,
+        AuthService authService, UserService userService)
+    {
+        (string? FullPath, string? Root) ResolveEntry(string path, ClientSession? session)
+        {
+            if (session != null) return ResolveOwnFilePath(path, session, service, userService);
+            var share = service.ResolvePublicShare(path);
+            return (share?.FullPath, share?.Root.Directory);
+        }
+
+        IResult StartPreview(HttpContext ctx, string path, bool isPublic)
+        {
+            if (!_fileShareEnabled) return Results.StatusCode(503);
+            var ip = ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            if (service.IsIPBlacklisted(ip)) return Results.StatusCode(403);
+            var session = isPublic ? null : authService.GetSession(ctx);
+            if (!isPublic && session == null) return Results.Unauthorized();
+            if (isPublic && !service.Settings.PublicShareEnabled) return Results.StatusCode(403);
+
+            var (fullPath, root) = ResolveEntry(path, session);
+            if (fullPath == null || root == null || GetMimeType(fullPath) != "text/html"
+                || !HtmlPreviewService.IsRegularFile(root, fullPath))
+                return Results.NotFound();
+            if (new FileInfo(fullPath).Length > HtmlPreviewService.MaximumPageBytes) return Results.StatusCode(413);
+
+            var grant = new HtmlPreviewGrant(path, Path.GetFullPath(fullPath), session?.Token, ip);
+            return Results.Json(new { url = HtmlPreviewService.CreateUrl(grant) });
+        }
+
+        app.MapGet("/api/files/preview/html", (HttpContext ctx, string path) => StartPreview(ctx, path, isPublic: false));
+        app.MapGet("/api/public/files/preview/html", (HttpContext ctx, string path) => StartPreview(ctx, path, isPublic: true));
+        app.MapGet(HtmlPreviewService.ResourcePrefix + "{ticket}/{**relativePath}", (HttpContext ctx, string ticket, string? relativePath) =>
+        {
+            if (!_fileShareEnabled) return Results.StatusCode(503);
+            var ip = ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            if (service.IsIPBlacklisted(ip)) return Results.StatusCode(403);
+            var grant = HtmlPreviewService.ReadGrant(ticket);
+            if (grant == null || grant.ClientIp != ip || string.IsNullOrEmpty(relativePath))
+                return Results.NotFound();
+
+            var session = grant.SessionToken == null ? null : authService.GetActiveSession(grant.SessionToken);
+            if (grant.SessionToken != null && session == null) return Results.Unauthorized();
+            if (grant.SessionToken == null && !service.Settings.PublicShareEnabled) return Results.StatusCode(403);
+            var (entry, root) = ResolveEntry(grant.AccessPath, session);
+            if (entry == null || root == null || !string.Equals(Path.GetFullPath(entry), grant.FullPath, StringComparison.OrdinalIgnoreCase)
+                || !HtmlPreviewService.IsRegularFile(root, entry))
+                return Results.NotFound();
+
+            var asset = HtmlPreviewService.ResolveAsset(grant.FullPath, relativePath);
+            if (asset == null || !HtmlPreviewService.IsRegularFile(Path.GetDirectoryName(grant.FullPath)!, asset.Value.Path))
+                return Results.NotFound();
+
+            var (file, mimeType) = asset.Value;
+            ctx.Response.Headers["X-Content-Type-Options"] = "nosniff";
+            ctx.Response.Headers["Referrer-Policy"] = "no-referrer";
+            if (mimeType == "text/html")
+            {
+                if (new FileInfo(file).Length > HtmlPreviewService.MaximumPageBytes) return Results.StatusCode(413);
+                var origin = HtmlPreviewService.GetOrigin(ctx.Request);
+                // CSP path sources do not support IPv6 literals. Keep those previews static.
+                if (origin.HostNameType != UriHostNameType.IPv6 && HtmlPreviewService.IsFrameRequest(ctx.Request, origin))
+                {
+                    var assets = origin.GetLeftPart(UriPartial.Authority) + HtmlPreviewService.ResourcePrefix + ticket + "/";
+                    ctx.Response.Headers["Content-Security-Policy"] =
+                        $"sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline' {assets}; " +
+                        $"style-src 'unsafe-inline' {assets}; img-src data: blob: {assets}; font-src data: {assets}; " +
+                        $"connect-src {assets}; base-uri 'none'; form-action 'none'; frame-ancestors 'self'";
+                }
+                else
+                {
+                    SetPreviewHeaders(ctx.Response, file);
+                }
+            }
+            else
+            {
+                ctx.Response.Headers["Content-Security-Policy"] = "sandbox; default-src 'none'; frame-ancestors 'none'";
+                if (ctx.Request.Headers.Origin == "null")
+                    ctx.Response.Headers["Access-Control-Allow-Origin"] = "null";
+            }
+            return Results.File(file, mimeType);
+        });
     }
 
     private static void SetPreviewHeaders(HttpResponse response, string fullPath)

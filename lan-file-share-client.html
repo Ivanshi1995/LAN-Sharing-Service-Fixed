@@ -9,6 +9,7 @@
 <script src="CDN/mammoth.browser.min.js"></script>
 <script src="CDN/xlsx.full.min.js"></script>
 <script src="CDN/upload-fingerprint.js"></script>
+<script src="CDN/html-preview.js"></script>
 <style>.iconify-icon{display:inline-block;width:1em;height:1em;vertical-align:-0.125em;flex-shrink:0}.audio-title-wrap{overflow:hidden;white-space:nowrap;position:relative}.audio-title-inner{display:inline-block;white-space:nowrap}.audio-title-inner.marquee{animation:marquee 8s linear infinite}@keyframes marquee{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}</style>
 <!-- SVG Icons sprite loaded below -->
 <svg xmlns="http://www.w3.org/2000/svg" style="display:none">
@@ -695,7 +696,7 @@
             <div id="doc-preview-excel-wrap"></div>
         </div>
         <!-- 文本预览 -->
-        <iframe id="doc-preview-html" class="hidden" title="HTML 网页预览" sandbox referrerpolicy="no-referrer"
+        <iframe id="doc-preview-html" class="hidden" title="HTML 网页预览" sandbox="allow-scripts" referrerpolicy="strict-origin"
                 style="width:min(86vw,1200px);height:calc(80vh - 52px);border:0;"></iframe>
         <div id="doc-preview-text" class="hidden"></div>
         <!-- 加载中 -->
@@ -1898,6 +1899,12 @@ let _pdfTotalPages = 0;
 let _excelWb = null; // SheetJS workbook 引用
 let _excelActiveSheet = 0;
 
+const docHtmlPreview = createHtmlPreview(
+    document.getElementById('doc-preview-html'),
+    document.getElementById('doc-preview-loading'),
+    showDocUnsupported
+);
+
 function openDocPreview(filePath, searchSize) {
     if (!filePath) return;
     const fromSearch = searchSize !== undefined;
@@ -1928,9 +1935,7 @@ function openDocPreview(filePath, searchSize) {
     document.getElementById('doc-preview-word').classList.add('hidden');
     document.getElementById('doc-preview-excel').classList.add('hidden');
     document.getElementById('doc-preview-text').classList.add('hidden');
-    const htmlFrame = document.getElementById('doc-preview-html');
-    htmlFrame.classList.add('hidden');
-    htmlFrame.removeAttribute('src');
+    docHtmlPreview.close();
     document.getElementById('doc-preview-unsupported').classList.add('hidden');
     var loadingEl = document.getElementById('doc-preview-loading');
     loadingEl.classList.remove('hidden');
@@ -1953,9 +1958,7 @@ function openDocPreview(filePath, searchSize) {
         loadExcelPreview(rawUrl);
     } else if (isHtmlFile(name)) {
         _docPreviewType = 'html';
-        htmlFrame.src = rawUrl;
-        htmlFrame.classList.remove('hidden');
-        loadingEl.classList.add('hidden');
+        docHtmlPreview.open('/api/files/preview/html?path=' + encodeURIComponent(apiPath));
     } else if (isTextFile(name)) {
         _docPreviewType = 'text';
         loadTextPreview(rawUrl);
@@ -2170,9 +2173,7 @@ function closeDocViewer() {
     document.getElementById('doc-preview-excel-wrap').innerHTML = '';
     document.getElementById('doc-preview-excel-tabs').innerHTML = '';
     document.getElementById('doc-preview-text').textContent = '';
-    const htmlFrame = document.getElementById('doc-preview-html');
-    htmlFrame.classList.add('hidden');
-    htmlFrame.removeAttribute('src');
+    docHtmlPreview.close();
     // 重置面板位置
     var panel = document.getElementById('doc-viewer-panel');
     if (panel) {
