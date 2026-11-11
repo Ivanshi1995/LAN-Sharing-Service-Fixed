@@ -41,8 +41,17 @@ EXE 已包含 .NET 运行环境和网页资源。
 预览可运行 JavaScript，并加载同目录的 CSS 和图片。
 请把网页资源放在 HTML 所在目录或其子目录。
 请用相对路径引用资源，例如 `./style.css`。
-预览会拦截外部资源和接口请求。
+预览也会从下表所列 CDN 加载 HTTPS 资源。
+访问设备需能连接网页引用的 CDN。
+预览会拦截外部接口请求。
 通过 IPv6 地址访问时，预览仅显示静态内容。
+
+| 资源 | 支持的 CDN 地址 |
+|---|---|
+| JavaScript、CSS、字体 | `cdn.jsdelivr.net`、`cdnjs.cloudflare.com/ajax/libs/`、`unpkg.com`、`cdn.bootcdn.net/ajax/libs/`、`ajax.googleapis.com/ajax/libs/` |
+| JavaScript | `esm.sh`、`esm.unpkg.com`、`code.jquery.com`、`cdn.tailwindcss.com` |
+| CSS | `fonts.googleapis.com` |
+| 字体 | `fonts.gstatic.com` |
 
 设置、账户和聊天数据保存在以下目录：
 
@@ -124,3 +133,4 @@ EXE 已包含 .NET 运行环境和网页资源。
 | 2026-11-11 | 共享文件夹直接使用 Windows 窗口选取。 | v2.4.4。 |
 | 2026-11-11 | 公共共享和账号共享可预览 HTML 网页。 | v2.4.5。 |
 | 2026-11-11 | HTML 预览支持网页脚本及同目录资源。 | v2.4.6。 |
+| 2026-11-11 | HTML 预览支持从指定 CDN 加载 HTTPS 资源。 | v2.4.7。 |

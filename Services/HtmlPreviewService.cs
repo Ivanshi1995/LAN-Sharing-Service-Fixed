@@ -10,6 +10,13 @@ internal static class HtmlPreviewService
 {
     internal const string ResourcePrefix = "/api/html-preview/";
     internal const int MaximumPageBytes = 50 * 1024 * 1024;
+    private const string PackageCdnSources =
+        "https://cdn.jsdelivr.net https://cdnjs.cloudflare.com/ajax/libs/ https://unpkg.com " +
+        "https://cdn.bootcdn.net/ajax/libs/ https://ajax.googleapis.com/ajax/libs/";
+    private const string ScriptCdnSources =
+        PackageCdnSources + " https://esm.sh https://esm.unpkg.com https://code.jquery.com https://cdn.tailwindcss.com";
+    private const string StyleCdnSources = PackageCdnSources + " https://fonts.googleapis.com";
+    private const string FontCdnSources = PackageCdnSources + " https://fonts.gstatic.com";
     private static readonly ITimeLimitedDataProtector Tickets = new EphemeralDataProtectionProvider()
         .CreateProtector("LanFileShare.HtmlPreview").ToTimeLimitedDataProtector();
     private static readonly char[] InvalidNameChars = Path.GetInvalidFileNameChars();
@@ -44,6 +51,12 @@ internal static class HtmlPreviewService
 
     internal static Uri GetOrigin(HttpRequest request) =>
         new($"{request.Scheme}://{request.Host.ToUriComponent()}");
+
+    internal static string GetInteractivePolicy(string assets) =>
+        $"sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline' {assets} {ScriptCdnSources}; " +
+        $"style-src 'unsafe-inline' {assets} {StyleCdnSources}; img-src data: blob: {assets}; " +
+        $"font-src data: {assets} {FontCdnSources}; connect-src {assets}; " +
+        "base-uri 'none'; form-action 'none'; frame-ancestors 'self'";
 
     internal static bool IsFrameRequest(HttpRequest request, Uri origin)
     {

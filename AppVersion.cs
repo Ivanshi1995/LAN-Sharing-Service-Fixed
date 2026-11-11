@@ -2,5 +2,5 @@
 namespace LanFileShare;
 public static class AppVersion
 {
-    public const string Version = "v2.4.6";
+    public const string Version = "v2.4.7";
 }

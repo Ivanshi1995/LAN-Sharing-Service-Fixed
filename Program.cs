@@ -3352,10 +3352,7 @@ public class Program
                 if (origin.HostNameType != UriHostNameType.IPv6 && HtmlPreviewService.IsFrameRequest(ctx.Request, origin))
                 {
                     var assets = origin.GetLeftPart(UriPartial.Authority) + HtmlPreviewService.ResourcePrefix + ticket + "/";
-                    ctx.Response.Headers["Content-Security-Policy"] =
-                        $"sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline' {assets}; " +
-                        $"style-src 'unsafe-inline' {assets}; img-src data: blob: {assets}; font-src data: {assets}; " +
-                        $"connect-src {assets}; base-uri 'none'; form-action 'none'; frame-ancestors 'self'";
+                    ctx.Response.Headers["Content-Security-Policy"] = HtmlPreviewService.GetInteractivePolicy(assets);
                 }
                 else
                 {

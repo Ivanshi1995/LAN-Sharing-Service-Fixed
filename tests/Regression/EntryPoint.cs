@@ -384,6 +384,16 @@ internal static class EntryPoint
                 var policy = frame.Headers.GetValues("Content-Security-Policy").Single();
                 Check(policy.StartsWith("sandbox allow-scripts;") && policy.Contains(assets));
                 Check(!policy.Contains("allow-same-origin"));
+                var directives = policy.Split(';', StringSplitOptions.TrimEntries);
+                var scripts = directives.Single(d => d.StartsWith("script-src ")).Split(' ');
+                var styles = directives.Single(d => d.StartsWith("style-src ")).Split(' ');
+                var fonts = directives.Single(d => d.StartsWith("font-src ")).Split(' ');
+                var connections = directives.Single(d => d.StartsWith("connect-src ")).Split(' ');
+                Check(scripts.Contains("https://cdn.jsdelivr.net") && scripts.Contains("https://cdnjs.cloudflare.com/ajax/libs/"));
+                Check(styles.Contains("https://cdn.jsdelivr.net") && styles.Contains("https://fonts.googleapis.com"));
+                Check(fonts.Contains("https://fonts.gstatic.com"));
+                Check(!scripts.Contains("https:") && !styles.Contains("https:"));
+                Check(connections.SequenceEqual(new[] { "connect-src", http.BaseAddress!.GetLeftPart(UriPartial.Authority) + assets }));
                 using var lanFrameRequest = new HttpRequestMessage(HttpMethod.Get, page);
                 lanFrameRequest.Headers.Referrer = http.BaseAddress;
                 using var lanFrame = await http.SendAsync(lanFrameRequest);
