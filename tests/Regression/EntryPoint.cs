@@ -318,6 +318,39 @@ internal static class EntryPoint
             var user = NewUser(); using var body = new MemoryStream(new byte[] { 1 });
             Check(!(await Uploads.WriteChunkAsync(user.Id, "../users", 0, body, default)).ok);
         });
+        await Run("HTML 预览隔离脚本并保留下载内容", async () =>
+        {
+            var user = NewUser();
+            const string fileName = "网页'样本.HTM";
+            var page = Encoding.UTF8.GetBytes("<!doctype html><meta charset=utf-8><h1>预览</h1><script>window.test=true</script>");
+            await File.WriteAllBytesAsync(Path.Combine(user.Folders[0], fileName), page);
+            await File.WriteAllBytesAsync(Path.Combine(publicFirst, fileName), page);
+
+            using var login = await http.PostAsJsonAsync("/api/auth/login", new { username = user.Username, password = "test-password" });
+            Check(login.IsSuccessStatusCode);
+            using var client = new HttpClient(new HttpClientHandler { UseCookies = false }) { BaseAddress = http.BaseAddress };
+            client.DefaultRequestHeaders.Add("Cookie", login.Headers.GetValues("Set-Cookie").Single().Split(';')[0]);
+            var privatePath = Uri.EscapeDataString("__folder__/0/" + fileName);
+            using var unauthenticated = await http.GetAsync("/api/files/preview/raw?path=" + privatePath);
+            Check(unauthenticated.StatusCode == HttpStatusCode.Unauthorized);
+
+            var publicPath = Uri.EscapeDataString(firstPublicPath + "/" + fileName);
+            foreach (var (caller, prefix, path) in new[] { (client, "/api/files", privatePath), (http, "/api/public/files", publicPath) })
+            {
+                foreach (var route in new[] { "/preview/raw", "/preview" })
+                {
+                    using var preview = await caller.GetAsync(prefix + route + "?path=" + path);
+                    Check(preview.IsSuccessStatusCode);
+                    Check(preview.Content.Headers.ContentType?.MediaType == "text/html");
+                    var policy = preview.Headers.GetValues("Content-Security-Policy").Single();
+                    Check(policy.Split(';').Contains("sandbox") && policy.Contains("default-src 'none'"));
+                    Check((await preview.Content.ReadAsByteArrayAsync()).SequenceEqual(page));
+                }
+                using var download = await caller.GetAsync(prefix + "/download?path=" + path);
+                Check(download.Content.Headers.ContentDisposition?.DispositionType == "attachment");
+                Check((await download.Content.ReadAsByteArrayAsync()).SequenceEqual(page));
+            }
+        });
         await Run("真实接口验证上传并下载", async () =>
         {
             var user = NewUser();

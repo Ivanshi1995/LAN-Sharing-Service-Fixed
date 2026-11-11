@@ -695,6 +695,8 @@
             <div id="doc-preview-excel-wrap"></div>
         </div>
         <!-- 文本预览 -->
+        <iframe id="doc-preview-html" class="hidden" title="HTML 网页预览" sandbox referrerpolicy="no-referrer"
+                style="width:min(86vw,1200px);height:calc(80vh - 52px);border:0;"></iframe>
         <div id="doc-preview-text" class="hidden"></div>
         <!-- 加载中 -->
         <div id="doc-preview-loading" class="hidden flex items-center justify-center py-12">
@@ -768,7 +770,8 @@ function isDocFile(name) { return /\.(pdf|docx|xlsx|xls|txt|csv|md|json|xml|log|
 function isPdfFile(name) { return /\.pdf$/i.test(name); }
 function isWordFile(name) { return /\.docx$/i.test(name); }
 function isExcelFile(name) { return /\.xlsx?$/i.test(name); }
-function isTextFile(name) { return /\.(txt|csv|md|json|xml|log|ini|cfg|yaml|yml|html?|css|js|ts|py|java|c|cpp|cs|go|rs|php|rb|sql|sh|bat|ps1)$/i.test(name); }
+function isHtmlFile(name) { return /\.html?$/i.test(name); }
+function isTextFile(name) { return /\.(txt|csv|md|json|xml|log|ini|cfg|yaml|yml|css|js|ts|py|java|c|cpp|cs|go|rs|php|rb|sql|sh|bat|ps1)$/i.test(name); }
 
 
 
@@ -1172,7 +1175,7 @@ function renderSearchResults(results, hasError) {
         }
 
         var nameClass = f.isShared ? 'font-bold text-purple-700' : 'font-semibold text-slate-700';
-        html += '<tr class="hover:bg-slate-50 cursor-pointer' + (f.isShared ? ' bg-purple-50/40' : '') + '" data-action="' + rowAction + '" data-path="' + fPathAttr + '">' +
+        html += '<tr class="hover:bg-slate-50 cursor-pointer' + (f.isShared ? ' bg-purple-50/40' : '') + '" data-action="' + rowAction + '" data-path="' + fPathAttr + '" data-size="' + Number(f.size) + '">' +
             '<td class="py-3"><div class="flex items-center gap-3">' + iconHtml +
             '<span class="' + nameClass + ' text-sm truncate max-w-[220px]">' + escHtml(fName) + '</span></div></td>' +
             '<td class="py-3 hidden md:table-cell">' + (locationHtml || '<span class="text-xs text-slate-300">--</span>') + '</td>' +
@@ -1218,9 +1221,13 @@ function getParentPath(filePath) {
 }
 
 // 搜索结果点击文件名：打开文件预览
-function previewSearchFile(filePath) {
+function previewSearchFile(filePath, size) {
     if (!filePath) return;
     var fileName = filePath.split('/').pop() || '';
+    if (isHtmlFile(fileName)) {
+        openDocPreview(filePath, size);
+        return;
+    }
     // 媒体文件使用内置预览播放器
     if (isMediaFile(fileName)) {
         // 搜索结果的 allFiles 在搜索模式下不适用，直接构造一个虚拟文件对象
@@ -1623,7 +1630,7 @@ function onFileListClick(e) {
     const searchFileRow = e.target.closest('tr[data-action="preview-search-result"]');
     if (searchFileRow) {
         var sfp = searchFileRow.getAttribute('data-path') || '';
-        previewSearchFile(sfp);
+        previewSearchFile(sfp, Number(searchFileRow.dataset.size));
         return;
     }
 }
@@ -1882,8 +1889,8 @@ document.getElementById('image-viewer-container').addEventListener('wheel', func
     zoomImage(delta);
 }, { passive: false });
 
-// ========== 文档预览（PDF/Word/Excel/文本） ==========
-let _docPreviewType = ''; // 'pdf' | 'word' | 'excel' | 'text'
+// ========== 文档预览（PDF/Word/Excel/HTML/文本） ==========
+let _docPreviewType = ''; // 'pdf' | 'word' | 'excel' | 'html' | 'text'
 let _docPreviewPath = '';
 let _pdfDoc = null; // PDF.js 文档对象
 let _pdfPageNum = 0;
@@ -1891,9 +1898,11 @@ let _pdfTotalPages = 0;
 let _excelWb = null; // SheetJS workbook 引用
 let _excelActiveSheet = 0;
 
-function openDocPreview(filePath) {
+function openDocPreview(filePath, searchSize) {
     if (!filePath) return;
-    var clickedFile = allFiles.find(f => f.path === filePath);
+    const fromSearch = searchSize !== undefined;
+    var clickedFile = fromSearch ? { name: filePath.split('/').pop(), size: searchSize }
+        : allFiles.find(f => f.path === filePath);
     if (!clickedFile && (filePath.startsWith('__shared__/') || filePath.startsWith('__folder__/'))) {
         var prefix = filePath.startsWith('__shared__/') ? '__shared__/' : '__folder__/';
         var prefixEnd = filePath.indexOf('/', prefix.length);
@@ -1907,11 +1916,10 @@ function openDocPreview(filePath) {
         showToast('文件过大（>50MB），不支持预览');
         return;
     }
-    _docPreviewPath = filePath;
-    var sharedPrefix = getSharedPrefix();
+    var sharedPrefix = fromSearch ? '' : getSharedPrefix();
     var apiPath = sharedPrefix && !filePath.startsWith('__shared__/') && !filePath.startsWith('__folder__/') ? sharedPrefix + '/' + filePath : filePath;
+    _docPreviewPath = apiPath;
     var rawUrl = '/api/files/preview/raw?path=' + encodeURIComponent(apiPath);
-    var downloadUrl = '/api/files/preview?path=' + encodeURIComponent(apiPath);
 
     // 重置状态
     _pdfDoc = null; _pdfPageNum = 0; _pdfTotalPages = 0;
@@ -1920,6 +1928,9 @@ function openDocPreview(filePath) {
     document.getElementById('doc-preview-word').classList.add('hidden');
     document.getElementById('doc-preview-excel').classList.add('hidden');
     document.getElementById('doc-preview-text').classList.add('hidden');
+    const htmlFrame = document.getElementById('doc-preview-html');
+    htmlFrame.classList.add('hidden');
+    htmlFrame.removeAttribute('src');
     document.getElementById('doc-preview-unsupported').classList.add('hidden');
     var loadingEl = document.getElementById('doc-preview-loading');
     loadingEl.classList.remove('hidden');
@@ -1940,6 +1951,11 @@ function openDocPreview(filePath) {
     } else if (isExcelFile(name)) {
         _docPreviewType = 'excel';
         loadExcelPreview(rawUrl);
+    } else if (isHtmlFile(name)) {
+        _docPreviewType = 'html';
+        htmlFrame.src = rawUrl;
+        htmlFrame.classList.remove('hidden');
+        loadingEl.classList.add('hidden');
     } else if (isTextFile(name)) {
         _docPreviewType = 'text';
         loadTextPreview(rawUrl);
@@ -2154,6 +2170,9 @@ function closeDocViewer() {
     document.getElementById('doc-preview-excel-wrap').innerHTML = '';
     document.getElementById('doc-preview-excel-tabs').innerHTML = '';
     document.getElementById('doc-preview-text').textContent = '';
+    const htmlFrame = document.getElementById('doc-preview-html');
+    htmlFrame.classList.add('hidden');
+    htmlFrame.removeAttribute('src');
     // 重置面板位置
     var panel = document.getElementById('doc-viewer-panel');
     if (panel) {
@@ -2235,12 +2254,7 @@ function downloadCurrentMedia() {
 // 下载当前预览的文档文件
 function downloadCurrentDoc() {
     if (!_docPreviewPath) return;
-    var path = _docPreviewPath;
-    var sharedPrefix = getSharedPrefix();
-    if (sharedPrefix && !path.startsWith('__shared__/') && !path.startsWith('__folder__/')) {
-        path = sharedPrefix + '/' + path;
-    }
-    downloadFile(path, false);
+    downloadFile(_docPreviewPath, false);
 }
 
 function closeImageViewer() {

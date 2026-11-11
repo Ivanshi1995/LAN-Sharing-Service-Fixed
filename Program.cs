@@ -1991,7 +1991,7 @@ public class Program
             if (fileInfo.Length > 50 * 1024 * 1024) { ctx.Response.StatusCode = 413; await ctx.Response.WriteAsync("文件过大，不支持预览"); return; }
             try
             {
-                ctx.Response.ContentType = GetMimeType(fullPath);
+                SetPreviewHeaders(ctx.Response, fullPath);
                 ctx.Response.ContentLength = fileInfo.Length;
                 // 使用 FileShare.Read 允许其他程序同时打开文件（如 Excel 正在编辑时仍可预览）
                 using (var fs = new FileStream(fullPath, FileMode.Open, FileAccess.Read, FileShare.Read))
@@ -2027,7 +2027,7 @@ public class Program
             var fileName = Path.GetFileName(fullPath);
             ctx.Response.Headers.Append("Content-Disposition", $"inline; filename=\"{Uri.EscapeDataString(fileName)}\"");
             ctx.Response.Headers.Append("Accept-Ranges", "bytes");
-            ctx.Response.ContentType = GetMimeType(fullPath);
+            SetPreviewHeaders(ctx.Response, fullPath);
             ctx.Response.ContentLength = fileInfo.Length;
             return Task.CompletedTask;
         });
@@ -2608,7 +2608,7 @@ public class Program
             if (fileInfo.Length > 50 * 1024 * 1024) { ctx.Response.StatusCode = 413; await ctx.Response.WriteAsync("文件过大，不支持预览"); return; }
             try
             {
-                ctx.Response.ContentType = GetMimeType(fullPath);
+                SetPreviewHeaders(ctx.Response, fullPath);
                 ctx.Response.ContentLength = fileInfo.Length;
                 // 使用 FileShare.Read 允许其他程序同时打开文件（如 Excel 正在编辑时仍可预览）
                 using (var fs = new FileStream(fullPath, FileMode.Open, FileAccess.Read, FileShare.Read))
@@ -2643,7 +2643,7 @@ public class Program
             var fileName = Path.GetFileName(fullPath);
             ctx.Response.Headers.Append("Content-Disposition", $"inline; filename=\"{Uri.EscapeDataString(fileName)}\"");
             ctx.Response.Headers.Append("Accept-Ranges", "bytes");
-            ctx.Response.ContentType = GetMimeType(fullPath);
+            SetPreviewHeaders(ctx.Response, fullPath);
             ctx.Response.ContentLength = fileInfo.Length;
             return Task.CompletedTask;
         });
@@ -3274,6 +3274,20 @@ public class Program
         return _mimeMap.TryGetValue(ext, out var mime) ? mime : "application/octet-stream";
     }
 
+    private static void SetPreviewHeaders(HttpResponse response, string fullPath)
+    {
+        var mimeType = GetMimeType(fullPath);
+        response.ContentType = mimeType;
+        if (mimeType != "text/html") return;
+
+        // Apply the same isolation when someone opens a preview URL directly.
+        response.Headers["Content-Security-Policy"] = "sandbox; default-src 'none'; style-src 'unsafe-inline'; " +
+            "img-src data:; font-src data:; media-src data:; base-uri 'none'; form-action 'none'; frame-ancestors 'self'";
+        response.Headers["X-Content-Type-Options"] = "nosniff";
+        response.Headers["Referrer-Policy"] = "no-referrer";
+        response.Headers["Cache-Control"] = "no-store";
+    }
+
     // 检测是否是文件被其他进程锁定的异常
     private static bool IsFileLockedException(IOException ex)
     {
@@ -3438,11 +3452,9 @@ public class Program
         var fileName = Path.GetFileName(fullPath);
         var fileLength = fileInfo.Length;
         var rangeHeader = ctx.Request.Headers.Range.ToString();
-        var mimeType = GetMimeType(fullPath);
-
         ctx.Response.Headers.Append("Content-Disposition", $"inline; filename=\"{Uri.EscapeDataString(fileName)}\"");
         ctx.Response.Headers.Append("Accept-Ranges", "bytes");
-        ctx.Response.ContentType = mimeType;
+        SetPreviewHeaders(ctx.Response, fullPath);
 
         var (_, downLimitMBps) = !string.IsNullOrEmpty(userId)
             ? service.GetBandwidthLimit(userId)
