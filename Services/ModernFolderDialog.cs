@@ -116,61 +116,9 @@ public static class ModernFolderDialog
     private const uint FOS_ALLOWMULTISELECT = 0x00000200;
 
     // SIGDN
-    private const int SIGDN_FILESYSPATH = 4;
-
-    // IFileDialogEvents GUID
-    private static readonly Guid IID_IFileDialogEvents = new("973510DB-7D7F-452B-8975-74A85828D354");
-
-    // IFileDialogEvents 实现，拦截盘符导航
-    [ComVisible(true)]
-    [ClassInterface(ClassInterfaceType.None)]
-    private class FileDialogEvents : IFileDialogEvents
-    {
-        public int OnFileOk(IFileDialog pfd) => 0;
-
-        public int OnFolderChanging(IFileDialog pfd, IShellItem psiFolder)
-        {
-            // 获取目标文件夹路径
-            IntPtr pszPath;
-            psiFolder.GetDisplayName(SIGDN_FILESYSPATH, out pszPath);
-            var targetPath = Marshal.PtrToStringUni(pszPath);
-            Marshal.FreeCoTaskMem(pszPath);
-
-            if (string.IsNullOrEmpty(targetPath))
-                return 0; // S_OK, 允许导航
-
-            // 如果目标是盘符根目录（如 D:\），确保用正确的方式导航
-            // 检查是否为纯盘符路径（D:\ 或 D:）
-            if (targetPath.Length == 3 && targetPath[1] == ':' && targetPath[2] == '\\')
-            {
-                // 盘符根目录，允许导航
-                return 0;
-            }
-
-            // 其他情况，默认允许
-            return 0;
-        }
-
-        public void OnFolderChange(IFileDialog pfd) { }
-        public void OnSelectionChange(IFileDialog pfd) { }
-        public void OnShareViolation(IFileDialog pfd, IShellItem psi, out int pResponse) { pResponse = 0; }
-        public void OnTypeChange(IFileDialog pfd) { }
-        public void OnOverwrite(IFileDialog pfd, IShellItem psi, out int pResponse) { pResponse = 0; }
-    }
-
-    [ComImport]
-    [Guid("973510DB-7D7F-452B-8975-74A85828D354")]
-    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    private interface IFileDialogEvents
-    {
-        [PreserveSig] int OnFileOk([In] IFileDialog pfd);
-        [PreserveSig] int OnFolderChanging([In] IFileDialog pfd, [In] IShellItem psiFolder);
-        void OnFolderChange([In] IFileDialog pfd);
-        void OnSelectionChange([In] IFileDialog pfd);
-        void OnShareViolation([In] IFileDialog pfd, [In] IShellItem psi, out int pResponse);
-        void OnTypeChange([In] IFileDialog pfd);
-        void OnOverwrite([In] IFileDialog pfd, [In] IShellItem psi, out int pResponse);
-    }
+    private const int SIGDN_FILESYSPATH = unchecked((int)0x80058000);
+    private const int ERROR_CANCELLED_HRESULT = unchecked((int)0x800704C7);
+    private const uint FOS_NOCHANGEDIR = 0x00000008;
 
     [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
     private static extern int SHCreateItemFromParsingName(
@@ -294,86 +242,54 @@ public static class ModernFolderDialog
         }
     }
 
-    // 多选文件夹对话框
-    public static List<string>? ShowMultiSelect(string title, string? initialPath = null)
+    public static List<string>? ShowMultiSelect(string title, string? initialPath = null, IntPtr owner = default)
     {
+        var dialogType = Type.GetTypeFromCLSID(CLSID_FileOpenDialog, throwOnError: true)!;
+        var dialog = (IFileOpenDialog)Activator.CreateInstance(dialogType)!;
         try
         {
-            var dialogType = Type.GetTypeFromCLSID(CLSID_FileOpenDialog);
-            if (dialogType == null) return FallbackMultiSelect(title, initialPath);
-
-            var dialog = (IFileOpenDialog)Activator.CreateInstance(dialogType)!;
-
-            uint options;
-            dialog.GetOptions(out options);
-            dialog.SetOptions(options | FOS_PICKFOLDERS | FOS_FORCEFILESYSTEM | FOS_PATHMUSTEXIST | FOS_ALLOWMULTISELECT);
-
+            dialog.GetOptions(out var options);
+            dialog.SetOptions(options | FOS_PICKFOLDERS | FOS_FORCEFILESYSTEM | FOS_PATHMUSTEXIST
+                | FOS_ALLOWMULTISELECT | FOS_NOCHANGEDIR);
             dialog.SetTitle(title);
             dialog.SetOkButtonLabel("选择文件夹");
 
-            var events = new FileDialogEvents();
-            var eventsPtr = Marshal.GetComInterfaceForObject<FileDialogEvents, IFileDialogEvents>(events);
-            dialog.Advise(eventsPtr, out uint cookie);
-
-            if (!string.IsNullOrEmpty(initialPath) && System.IO.Directory.Exists(initialPath))
+            if (Directory.Exists(initialPath) && SHCreateItemFromParsingName(initialPath!, IntPtr.Zero,
+                typeof(IShellItem).GUID, out var folderItem) == 0 && folderItem != null)
             {
-                try
-                {
-                    int hr = SHCreateItemFromParsingName(initialPath, IntPtr.Zero, typeof(IShellItem).GUID, out var folderItem);
-                    if (hr == 0 && folderItem != null)
-                    {
-                        dialog.SetFolder(folderItem);
-                        Marshal.ReleaseComObject(folderItem);
-                    }
-                }
-                catch { }
+                try { dialog.SetFolder(folderItem); }
+                finally { Marshal.ReleaseComObject(folderItem); }
             }
 
-            int result = dialog.Show(IntPtr.Zero);
-            dialog.Unadvise(cookie);
-            Marshal.Release(eventsPtr);
-            if (result != 0)
-            {
-                Marshal.ReleaseComObject(dialog);
-                return null;
-            }
+            var result = dialog.Show(owner);
+            if (result == ERROR_CANCELLED_HRESULT) return null;
+            Marshal.ThrowExceptionForHR(result);
 
             dialog.GetResults(out var itemArray);
-            if (itemArray == null)
+            try
             {
-                Marshal.ReleaseComObject(dialog);
-                return null;
+                itemArray.GetCount(out var count);
+                var paths = new List<string>();
+                for (uint i = 0; i < count; i++)
+                {
+                    itemArray.GetItemAt(i, out var item);
+                    try
+                    {
+                        item.GetDisplayName(SIGDN_FILESYSPATH, out var name);
+                        try
+                        {
+                            var path = Marshal.PtrToStringUni(name);
+                            if (!string.IsNullOrEmpty(path)) paths.Add(path);
+                        }
+                        finally { Marshal.FreeCoTaskMem(name); }
+                    }
+                    finally { Marshal.ReleaseComObject(item); }
+                }
+                return paths;
             }
-
-            itemArray.GetCount(out uint count);
-            var paths = new List<string>();
-            for (uint i = 0; i < count; i++)
-            {
-                itemArray.GetItemAt(i, out var item);
-                IntPtr pszPath;
-                item.GetDisplayName(SIGDN_FILESYSPATH, out pszPath);
-                var path = Marshal.PtrToStringUni(pszPath);
-                Marshal.FreeCoTaskMem(pszPath);
-                Marshal.ReleaseComObject(item);
-                if (!string.IsNullOrEmpty(path))
-                    paths.Add(path);
-            }
-
-            Marshal.ReleaseComObject(itemArray);
-            Marshal.ReleaseComObject(dialog);
-
-            return paths;
+            finally { Marshal.ReleaseComObject(itemArray); }
         }
-        catch
-        {
-            return FallbackMultiSelect(title, initialPath);
-        }
-    }
-
-    private static List<string>? FallbackMultiSelect(string title, string? initialPath)
-    {
-        var single = Show(title, initialPath);
-        return single != null ? new List<string> { single } : null;
+        finally { Marshal.ReleaseComObject(dialog); }
     }
 
     private static string? Fallback(string title, string? initialPath)

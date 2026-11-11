@@ -172,6 +172,67 @@ internal static class EntryPoint
             Files.Settings.PublicShareDirectories = new() { user.Folders[1] };
             Check(!Uploads.Complete("pub:192.0.2.1", item.uploadId!).ok);
         });
+        var publicFirst = Path.Combine(Root, "public-first", "资料");
+        var publicSecond = Path.Combine(Root, "public-second", "资料");
+        Directory.CreateDirectory(publicFirst);
+        Directory.CreateDirectory(publicSecond);
+        await File.WriteAllTextAsync(Path.Combine(publicFirst, "sample.txt"), "第一份");
+        await File.WriteAllTextAsync(Path.Combine(publicSecond, "sample.txt"), "第二份");
+        await File.WriteAllTextAsync(Path.Combine(Path.GetDirectoryName(publicFirst)!, "private.txt"), "未共享");
+        Files.Settings.PublicShareDirectories = new() { publicFirst, publicSecond, publicFirst + Path.DirectorySeparatorChar };
+        async Task<JsonElement[]> PublicFiles(string query = "") =>
+            (await http.GetFromJsonAsync<JsonElement[]>("/api/public/files" + query))!;
+        string? firstPublicPath = null;
+        string? secondPublicPath = null;
+        await Run("同名公共目录各有独立入口，重复路径只显示一次", async () =>
+        {
+            var folders = await PublicFiles();
+            Check(folders.Length == 2);
+            Check(folders[0].GetProperty("name").GetString() != folders[1].GetProperty("name").GetString());
+            firstPublicPath = folders[0].GetProperty("path").GetString();
+            secondPublicPath = folders[1].GetProperty("path").GetString();
+            Check(firstPublicPath != secondPublicPath);
+            foreach (var (key, content) in new[] { (firstPublicPath, "第一份"), (secondPublicPath, "第二份") })
+            {
+                var entries = await PublicFiles("?path=" + Uri.EscapeDataString(key!));
+                var path = entries.Single().GetProperty("path").GetString()!;
+                Check(await http.GetStringAsync("/api/public/files/download?path=" + Uri.EscapeDataString(path)) == content);
+            }
+            using var status = await http.GetAsync("/api/public/status");
+            Check(!(await status.Content.ReadAsStringAsync()).Contains("public-first", StringComparison.Ordinal));
+        });
+        await Run("公共搜索区分同名目录且拒绝访问共享目录之外", async () =>
+        {
+            var search = (await http.GetFromJsonAsync<JsonElement[]>("/api/public/files/search?q=sample"))!;
+            var paths = search.Select(item => item.GetProperty("path").GetString()).ToArray();
+            Check(paths.Contains(firstPublicPath + "/sample.txt") && paths.Contains(secondPublicPath + "/sample.txt"));
+            using var traversal = await http.GetAsync("/api/public/files/download?path=" + Uri.EscapeDataString(firstPublicPath + "/../private.txt"));
+            Check(traversal.StatusCode == HttpStatusCode.NotFound);
+            using var ambiguous = await http.GetAsync("/api/public/files?path=" + Uri.EscapeDataString("资料"));
+            Check(ambiguous.StatusCode == HttpStatusCode.NotFound);
+        });
+        await Run("上传写入指定的同名目录，撤回后其入口失效", async () =>
+        {
+            var data = Encoding.UTF8.GetBytes("第二个目录的文件");
+            using var invalid = await http.PostAsJsonAsync("/api/public/chunked/init",
+                new { subPath = "不存在", fileName = "rejected.txt", fileSize = data.Length });
+            Check(invalid.StatusCode == HttpStatusCode.NotFound);
+            using var init = await http.PostAsJsonAsync("/api/public/chunked/init",
+                new { subPath = secondPublicPath, fileName = "uploaded.txt", fileSize = data.Length, contentHash = Hash(data) });
+            Check(init.IsSuccessStatusCode);
+            var id = (await init.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("uploadId").GetString();
+            using var write = await http.PostAsync("/api/public/chunked/write?uploadId=" + id + "&offset=0", new ByteArrayContent(data));
+            Check(write.IsSuccessStatusCode);
+            using var complete = await http.PostAsJsonAsync("/api/public/chunked/complete", new { uploadId = id, overwrite = true });
+            Check(complete.IsSuccessStatusCode);
+            Check(File.ReadAllBytes(Path.Combine(publicSecond, "uploaded.txt")).SequenceEqual(data));
+            Check(!File.Exists(Path.Combine(publicFirst, "uploaded.txt")));
+            Files.Settings.PublicShareDirectories = new() { publicFirst };
+            Check((await PublicFiles()).Single().GetProperty("path").GetString() == firstPublicPath);
+            using var removed = await http.GetAsync("/api/public/files?path=" + Uri.EscapeDataString(secondPublicPath!));
+            Check(removed.StatusCode == HttpStatusCode.NotFound);
+            Check((await PublicFiles("?path=" + Uri.EscapeDataString("资料"))).Length == 1);
+        });
         await Run("超大分块回滚且保留已确认内容", async () =>
         {
             var user = NewUser(); var data = new byte[UploadLimits.ChunkSize + 2]; var item = Init(user, bytes: data);

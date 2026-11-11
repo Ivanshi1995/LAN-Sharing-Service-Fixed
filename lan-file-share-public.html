@@ -411,6 +411,7 @@
 
 <script>
 let _currentPath = '';
+let _publicRootNames = new Map();
 
 function logAction(action, detail) {
     fetch('/api/log/action', {
@@ -579,7 +580,7 @@ function pubRenderSearchResults(results, hasError) {
             ? '<svg class="iconify-icon flex-shrink-0 text-yellow-500 text-xl"><use href="#folder"/></svg>'
             : '<svg class="iconify-icon flex-shrink-0 ' + escHtml(f.iconColor || '') + '"><use href="#' + escHtml((f.icon || 'mdi:file').replace('mdi:', '').replace(/-/g, '_')) + '"/></svg>';
         var sizeStr = f.sizeDisplay || (f.size >= 0 ? formatFileSize(f.size) : '--');
-        var locationHtml = f.parentPath ? '<span class="text-xs text-slate-400 ml-2">' + escHtml(f.parentPath) + '</span>' : '';
+        var locationHtml = f.parentPath ? '<span class="text-xs text-slate-400 ml-2">' + escHtml(publicDisplayPath(f.parentPath)) + '</span>' : '';
 
         html += '<div class="flex items-center gap-3 px-4 py-3 hover:bg-slate-50 cursor-pointer transition-colors border-b border-slate-50 last:border-0" onclick="' + 
             (f.isDirectory ? "pubClearSearch();navigateTo('" + escAttr(f.path) + "')" : "downloadPublicFile('" + escAttr(f.path) + "', '" + escAttr(f.name) + "')") + '">' +
@@ -616,6 +617,7 @@ async function loadFiles(path) {
             throw new Error(data.error || '服务器返回了异常数据');
         }
         _allFiles = data;
+        if (!_currentPath) _publicRootNames = new Map(data.map(folder => [folder.path, folder.name]));
         renderFileList(data);
         renderBreadcrumb(_currentPath);
         updateUploadAreaVisibility();
@@ -636,6 +638,12 @@ function updateUploadAreaVisibility() {
     }
 }
 
+function publicDisplayPath(path) {
+    const parts = path.split('/');
+    parts[0] = _publicRootNames.get(parts[0]) || parts[0];
+    return parts.join('/');
+}
+
 function renderBreadcrumb(path) {
     const el = document.getElementById('breadcrumb-path');
     const breadcrumb = document.getElementById('breadcrumb');
@@ -653,11 +661,12 @@ function renderBreadcrumb(path) {
     let accumulated = '';
     parts.forEach((p, i) => {
         accumulated += '/' + p;
+        const name = i === 0 ? _publicRootNames.get(p) || p : p;
         html += '<span class="text-slate-300 mx-1">/</span>';
         if (i < parts.length - 1) {
-            html += '<a href="javascript:void(0)" onclick="navigateTo(\'' + escAttr(accumulated.substring(1)) + '\')" class="text-blue-600 hover:text-blue-700 font-medium">' + escHtml(p) + '</a>';
+            html += '<a href="javascript:void(0)" onclick="navigateTo(\'' + escAttr(accumulated.substring(1)) + '\')" class="text-blue-600 hover:text-blue-700 font-medium">' + escHtml(name) + '</a>';
         } else {
-            html += '<span class="text-slate-600 font-medium">' + escHtml(p) + '</span>';
+            html += '<span class="text-slate-600 font-medium">' + escHtml(name) + '</span>';
         }
     });
     el.innerHTML = html;
@@ -2310,6 +2319,7 @@ document.addEventListener('keydown', function(e) {
         const statusRes = await fetch('/api/public/status');
         if (statusRes.ok) {
             const status = await statusRes.json();
+            _publicRootNames = new Map((status.directories || []).map(folder => [folder.path, folder.name]));
             if (status.readOnly) {
                 document.getElementById('upload-area').classList.add('hidden');
             }

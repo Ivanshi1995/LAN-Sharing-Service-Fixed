@@ -21,6 +21,7 @@ public class Program
     private static bool _fileShareEnabled = true;
     private static SynchronizationContext? _uiContext;
     private static MainForm? _mainForm;
+    private static readonly SemaphoreSlim _nativeFolderPicker = new(1, 1);
     private static int _activeListenPort = 8080;
     
     // 聊天消息 SSE 客户端：key = username, value = StreamWriter
@@ -751,6 +752,7 @@ public class Program
                 publicShareEnabled = service.Settings.PublicShareEnabled,
                 publicShareReadOnly = service.Settings.PublicShareReadOnly,
                 publicShareDirectories = service.GetPublicSharePaths(),
+                nativeFolderPicker = CanUseNativeFolderPicker(ctx),
                 activeConnections = service.ActiveConnections,
                 uniqueDevices = service.UniqueDeviceCount,
                 onlineUsers = onlineUsers,
@@ -819,20 +821,18 @@ public class Program
             if (root.TryGetProperty("publicShareDirectory", out var psd) && psd.ValueKind == JsonValueKind.String)
             {
                 var val = psd.GetString() ?? "";
-                if (!string.IsNullOrWhiteSpace(val) && !current.PublicShareDirectories.Contains(val))
-                    current.PublicShareDirectories.Add(val);
-                else if (string.IsNullOrWhiteSpace(val))
-                    current.PublicShareDirectories.Clear();
+                current.PublicShareDirectories = string.IsNullOrWhiteSpace(val)
+                    ? new List<string>()
+                    : current.PublicShareDirectories.Append(val).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
                 publicShareChanged = true;
             }
             if (root.TryGetProperty("publicShareDirectories", out var psdArr) && psdArr.ValueKind == JsonValueKind.Array)
             {
-                current.PublicShareDirectories.Clear();
-                foreach (var d in psdArr.EnumerateArray())
-                {
-                    if (d.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(d.GetString()))
-                        current.PublicShareDirectories.Add(d.GetString()!);
-                }
+                current.PublicShareDirectories = psdArr.EnumerateArray()
+                    .Where(d => d.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(d.GetString()))
+                    .Select(d => d.GetString()!)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
                 publicShareChanged = true;
             }
             if (root.TryGetProperty("publicShareEnabled", out var pse) && (pse.ValueKind == JsonValueKind.True || pse.ValueKind == JsonValueKind.False))
@@ -852,9 +852,9 @@ public class Program
             {
                 service.EnsurePublicShareDirectories();
                 // 公共共享目录变更后预构建索引
-                if (_service.Settings.PublicShareEnabled)
+                if (current.PublicShareEnabled)
                 {
-                    foreach (var dir in _service.GetPublicSharePaths())
+                    foreach (var dir in service.GetPublicSharePaths())
                         _ = service.BuildIndexAsync(dir);
                 }
             }
@@ -2535,49 +2535,37 @@ public class Program
             }
         });
 
-        // API: select public share directories dialog (multi-select)（仅管理端/管理员）
         app.MapPost("/api/select-public-directory", async (HttpContext ctx) =>
         {
-            if (!IsAdminRequest(ctx, authService, userService)) { ctx.Response.StatusCode = 403; await ctx.Response.WriteAsJsonAsync(new { error = "Forbidden" }); return; }
-            var tcs = new TaskCompletionSource<List<string>?>();
+            if (!CanUseNativeFolderPicker(ctx) || ctx.Request.Headers["X-LanFileShare-Folder-Picker"] != "1")
+                return Results.Json(new { success = false }, statusCode: 403);
+            if (!_nativeFolderPicker.Wait(0))
+                return Results.Json(new { success = false, error = "请先关闭已打开的选择窗口。" }, statusCode: 409);
 
-            if (_uiContext == null)
-            {
-                service.AddLog("ERROR", "服务端", "无法打开目录对话框");
-                await ctx.Response.WriteAsJsonAsync(new { success = false, error = "UI 上下文未初始化" });
-                return;
-            }
-
-            _uiContext.Post(_ =>
-            {
-                try
-                {
-                    var currentDir = service.GetPublicSharePath();
-                    var paths = LanFileShare.Services.ModernFolderDialog.ShowMultiSelect("选择公共共享目录（可多选，无需登录即可浏览下载）", currentDir);
-                    tcs.SetResult(paths);
-                }
-                catch (Exception ex)
-                {
-                    service.AddLog("ERROR", "服务端", $"公共目录对话框: {ex.Message}");
-                    tcs.SetException(ex);
-                }
-            }, null);
-
+            var selection = new TaskCompletionSource<List<string>?>(TaskCreationOptions.RunContinuationsAsynchronously);
             try
             {
-                var paths = await tcs.Task;
-                if (paths == null || paths.Count == 0)
-                    await ctx.Response.WriteAsJsonAsync(new { success = false, error = "未选择目录" });
-                else
-                    await ctx.Response.WriteAsJsonAsync(new { success = true, paths = paths });
+                _uiContext!.Post(_ =>
+                {
+                    try
+                    {
+                        var owner = _mainForm is { Visible: true } form ? form.Handle : IntPtr.Zero;
+                        var paths = LanFileShare.Services.ModernFolderDialog.ShowMultiSelect(
+                            "选择共享文件夹", service.GetPublicSharePaths().FirstOrDefault(), owner);
+                        selection.TrySetResult(paths);
+                    }
+                    catch (Exception ex) { selection.TrySetException(ex); }
+                }, null);
+
+                var paths = await selection.Task;
+                return Results.Json(new { success = true, paths = paths ?? new List<string>() });
             }
             catch (Exception ex)
             {
-                ctx.Response.StatusCode = 500;
-                var err = ex.InnerException ?? ex;
-                service.AddLog("ERROR", "服务端", $"公共目录对话框异常: {err.Message}");
-                await ctx.Response.WriteAsJsonAsync(new { success = false, error = err.Message ?? "未知错误" });
+                service.AddLog("ERROR", "服务端", $"打开 Windows 文件夹选择窗口失败: {ex.Message}");
+                return Results.Json(new { success = false, error = "无法打开 Windows 选择窗口。请在网页中选择。" }, statusCode: 500);
             }
+            finally { _nativeFolderPicker.Release(); }
         });
 
         // API: open explorer
@@ -2607,7 +2595,7 @@ public class Program
             {
                 enabled = true,
                 readOnly = service.Settings.PublicShareReadOnly,
-                directories = service.GetPublicSharePaths().Select(d => new { path = d, name = Path.GetFileName(d) }).ToList()
+                directories = service.GetPublicShareRoots().Select(folder => new { path = folder.Key, name = folder.Name }).ToList()
             });
         });
 
@@ -2622,61 +2610,40 @@ public class Program
                 var clientIp = ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown";
                 service.UpdateUserOnline($"pub:{clientIp}", "公共用户", clientIp);
 
-                var dirs = service.GetPublicSharePaths();
                 var subPath = FileShareService.NormalizeSubPath(path ?? "");
 
                 if (string.IsNullOrEmpty(subPath))
                 {
                     // 根目录：列出所有共享文件夹
                     var items = new List<FileItem>();
-                    foreach (var dir in dirs)
+                    foreach (var folder in service.GetPublicShareRoots())
                     {
-                        if (!Directory.Exists(dir)) continue;
-                        var dirInfo = new DirectoryInfo(dir);
+                        if (!Directory.Exists(folder.Directory)) continue;
                         items.Add(new FileItem
                         {
-                            Name = dirInfo.Name,
-                            Path = dirInfo.Name,
+                            Name = folder.Name,
+                            Path = folder.Key,
                             IsDirectory = true,
                             Size = -1,
-                            LastModified = dirInfo.LastWriteTime
+                            LastModified = Directory.GetLastWriteTime(folder.Directory)
                         });
                     }
                     return Results.Json(items);
                 }
-                else
-                {
-                    // 子路径：找到对应的基目录
-                    var parts = subPath.Split(new[] { Path.DirectorySeparatorChar, '/' }, 2);
-                    var rootName = parts[0];
-                    var innerPath = parts.Length > 1 ? parts[1] : "";
-
-                    foreach (var dir in dirs)
-                    {
-                        var dirInfo = new DirectoryInfo(dir);
-                        if (string.Equals(dirInfo.Name, rootName, StringComparison.OrdinalIgnoreCase))
-                        {
-                            var targetDir = string.IsNullOrEmpty(innerPath) ? dir : Path.Combine(dir, innerPath);
-                            if (!Directory.Exists(targetDir))
-                                return Results.Json(new List<FileItem>());
-                            var files = service.ListFiles("", targetDir);
-                            // 给文件路径加上根目录名和子路径前缀，确保下载/预览时能正确解析
-                            var prefix = rootName;
-                            if (!string.IsNullOrEmpty(innerPath))
-                                prefix += "/" + innerPath.Replace('\\', '/');
-                            foreach (var f in files)
-                            {
-                                f.Path = prefix + "/" + f.Path;
-                                if (!string.IsNullOrEmpty(f.ParentPath))
-                                    f.ParentPath = prefix + "/" + f.ParentPath;
-                                else if (f.IsDirectory)
-                                    f.ParentPath = prefix;
-                            }
-                            return Results.Json(files);
-                        }
-                    }
+                var target = service.ResolvePublicShare(subPath);
+                if (target == null || !Directory.Exists(target.Value.FullPath))
                     return Results.Json(new { error = "目录不存在" }, statusCode: 404);
+                var (root, relativePath, fullPath) = target.Value;
+                var files = service.ListFiles("", fullPath);
+                var prefix = root.Key;
+                if (!string.IsNullOrEmpty(relativePath))
+                    prefix += "/" + relativePath.Replace('\\', '/');
+                foreach (var file in files)
+                {
+                    file.Path = prefix + "/" + file.Path;
+                    file.ParentPath = string.IsNullOrEmpty(file.ParentPath) ? prefix : prefix + "/" + file.ParentPath;
                 }
+                return Results.Json(files);
             }
             catch (Exception ex)
             {
@@ -2696,18 +2663,16 @@ public class Program
             var clientIp = ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown";
             service.UpdateUserOnline($"pub:{clientIp}", "公共用户", clientIp);
             var allResults = new List<FileItem>();
-            foreach (var dir in service.GetPublicSharePaths())
+            foreach (var folder in service.GetPublicShareRoots())
             {
-                var results = service.SearchFiles(q, dir);
-                // 给搜索结果路径加上目录名前缀
-                var dirName = new DirectoryInfo(dir).Name;
+                var results = service.SearchFiles(q, folder.Directory);
                 foreach (var r in results)
                 {
-                    r.Path = dirName + "/" + r.Path;
+                    r.Path = folder.Key + "/" + r.Path;
                     if (!string.IsNullOrEmpty(r.ParentPath))
-                        r.ParentPath = dirName + "/" + r.ParentPath;
+                        r.ParentPath = folder.Key + "/" + r.ParentPath;
                     else
-                        r.ParentPath = dirName;
+                        r.ParentPath = folder.Key;
                 }
                 allResults.AddRange(results);
             }
@@ -2823,21 +2788,10 @@ public class Program
                 if (files.Count == 0) { ctx.Response.StatusCode = 400; await ctx.Response.WriteAsync("未选择文件"); return; }
                 // 禁止在根目录上传
                 if (string.IsNullOrEmpty(subPath)) { ctx.Response.StatusCode = 403; await ctx.Response.WriteAsync("根目录不允许上传，请进入具体文件夹后再上传"); return; }
-                var targetDir = ResolvePublicSharePath(subPath, service);
-                if (targetDir == null || !Directory.Exists(targetDir)) { ctx.Response.StatusCode = 404; await ctx.Response.WriteAsync("目标目录不存在"); return; }
-                // 获取baseDir用于安全检查（去掉子路径部分，得到共享根目录）
-                var normalized = FileShareService.NormalizeSubPath(subPath);
-                var pathParts = normalized.Split(new[] { Path.DirectorySeparatorChar, '/' }, 2);
-                var rootName = pathParts[0];
-                string baseDir = targetDir;
-                foreach (var d in service.GetPublicSharePaths())
-                {
-                    if (string.Equals(new DirectoryInfo(d).Name, rootName, StringComparison.OrdinalIgnoreCase))
-                    {
-                        baseDir = d;
-                        break;
-                    }
-                }
+                var target = service.ResolvePublicShare(subPath);
+                if (target == null || !Directory.Exists(target.Value.FullPath)) { ctx.Response.StatusCode = 404; await ctx.Response.WriteAsync("目标目录不存在"); return; }
+                var (shareRoot, _, targetDir) = target.Value;
+                var baseDir = shareRoot.Directory;
 
                 service.AddLog("INFO", "公共共享", $"上传 {files.Count} 个文件");
 
@@ -2969,27 +2923,17 @@ public class Program
                 // 初始化速度追踪器（显示为"公共用户"）
                 service.TrackUserUploaded(pubUserId, "公共用户", clientIp, 0);
 
-                // 多目录支持：解析 subPath 对应的 baseDir
-                string? resolvedBaseDir = null;
-                if (!string.IsNullOrWhiteSpace(subPath))
+                var target = service.ResolvePublicShare(subPath);
+                if (target == null || !Directory.Exists(target.Value.FullPath))
                 {
-                    var normalized = FileShareService.NormalizeSubPath(subPath);
-                    var pathParts = normalized.Split(new[] { Path.DirectorySeparatorChar, '/' }, 2);
-                    var rootName = pathParts[0];
-                    foreach (var d in service.GetPublicSharePaths())
-                    {
-                        if (string.Equals(new DirectoryInfo(d).Name, rootName, StringComparison.OrdinalIgnoreCase))
-                        {
-                            resolvedBaseDir = d;
-                            // subPath 去掉目录名前缀，保留内部子路径
-                            subPath = pathParts.Length > 1 ? pathParts[1] : "";
-                            break;
-                        }
-                    }
+                    ctx.Response.StatusCode = 404;
+                    await ctx.Response.WriteAsync("目标目录不存在");
+                    return;
                 }
+                var (shareRoot, relativePath, _) = target.Value;
 
                 var (ok, error, uploadId, uploadedBytes, chunkSize, fileExists) = chunkedUploadService.Init(
-                    pubUserId, "__public__", subPath, fileName, fileSize, resolvedBaseDir, contentHash, accessPath);
+                    pubUserId, "__public__", relativePath, fileName, fileSize, shareRoot.Directory, contentHash, accessPath);
                 if (!ok)
                 {
                     ctx.Response.StatusCode = 400;
@@ -3285,25 +3229,8 @@ public class Program
     }
 
     // 公共共享路径解析，支持多目录
-    private static string? ResolvePublicSharePath(string path, FileShareService service)
-    {
-        if (string.IsNullOrWhiteSpace(path)) return null;
-        var normalized = FileShareService.NormalizeSubPath(path);
-        var parts = normalized.Split(new[] { Path.DirectorySeparatorChar, '/' }, 2);
-        var rootName = parts[0];
-        var innerPath = parts.Length > 1 ? parts[1] : "";
-
-        var dirs = service.GetPublicSharePaths();
-        foreach (var dir in dirs)
-        {
-            var dirInfo = new DirectoryInfo(dir);
-            if (string.Equals(dirInfo.Name, rootName, StringComparison.OrdinalIgnoreCase))
-            {
-                return string.IsNullOrEmpty(innerPath) ? dir : Path.Combine(dir, innerPath);
-            }
-        }
-        return null;
-    }
+    private static string? ResolvePublicSharePath(string path, FileShareService service) =>
+        service.ResolvePublicShare(path)?.FullPath;
 
     private static void CopyDirectoryRecursive(string sourceDir, string destDir)
     {
@@ -3367,9 +3294,9 @@ public class Program
             // 3. 公共共享目录（如果启用）
             if (svc.Settings.PublicShareEnabled)
             {
-                var pubPath = svc.GetPublicSharePath();
-                if (Directory.Exists(pubPath))
-                    paths.Add(pubPath);
+                foreach (var pubPath in svc.GetPublicSharePaths())
+                    if (Directory.Exists(pubPath))
+                        paths.Add(pubPath);
             }
 
             svc.AddLog("INFO", "INDEX", $"启动预构建 {paths.Count} 个目录的文件索引...");
@@ -3486,6 +3413,17 @@ public class Program
     }
 
     // 验证是否是管理端请求（本地回环或管理员 session）
+    private static bool CanUseNativeFolderPicker(HttpContext ctx)
+    {
+        if (_uiContext == null || _mainForm == null
+            || ctx.Connection.RemoteIpAddress is not { } remote || !System.Net.IPAddress.IsLoopback(remote))
+            return false;
+
+        var host = ctx.Request.Host.Host.Trim('[', ']');
+        return string.Equals(host, "localhost", StringComparison.OrdinalIgnoreCase)
+            || System.Net.IPAddress.TryParse(host, out var address) && System.Net.IPAddress.IsLoopback(address);
+    }
+
     private static bool IsAdminRequest(HttpContext ctx, AuthService authService, UserService userService)
     {
         // 方式1: 本地回环请求 → 直接放行（只有本机 WebView2 管理页面能发本地回环请求）

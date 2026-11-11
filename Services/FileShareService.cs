@@ -1,9 +1,13 @@
 using System.Collections.Concurrent;
 using System.Net;
 using System.Net.NetworkInformation;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 
 namespace LanFileShare;
+
+internal sealed record PublicShareRoot(string Key, string Name, string Directory);
 
 public class LogEntry
 {
@@ -358,15 +362,68 @@ public class FileShareService
     public List<string> GetPublicSharePaths()
     {
         var result = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var dir in _settings.PublicShareDirectories)
         {
             if (!string.IsNullOrWhiteSpace(dir))
             {
-                try { result.Add(Path.GetFullPath(dir)); }
+                try
+                {
+                    var fullPath = Path.TrimEndingDirectorySeparator(Path.GetFullPath(dir));
+                    if (seen.Add(fullPath)) result.Add(fullPath);
+                }
                 catch { }
             }
         }
         return result;
+    }
+
+    internal List<PublicShareRoot> GetPublicShareRoots()
+    {
+        var folders = GetPublicSharePaths().Select(dir => new DirectoryInfo(dir)).ToArray();
+        var nameCounts = folders.GroupBy(folder => folder.Name, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.Count(), StringComparer.OrdinalIgnoreCase);
+        var usedNames = new HashSet<string>(nameCounts.Keys, StringComparer.OrdinalIgnoreCase);
+        var roots = new List<PublicShareRoot>(folders.Length);
+        foreach (var folder in folders)
+        {
+            var name = folder.Name;
+            if (nameCounts[name] > 1)
+            {
+                var index = 1;
+                while (!usedNames.Add(name = $"{folder.Name}（{index++}）")) { }
+            }
+            var hash = SHA256.HashData(Encoding.UTF8.GetBytes(folder.FullName.ToUpperInvariant()));
+            roots.Add(new PublicShareRoot("share:" + Convert.ToHexString(hash.AsSpan(0, 16)), name, folder.FullName));
+        }
+        return roots;
+    }
+
+    internal (PublicShareRoot Root, string RelativePath, string FullPath)? ResolvePublicShare(string path)
+    {
+        var normalized = NormalizeSubPath(path);
+        if (normalized.Length == 0) return null;
+        var parts = normalized.Split(Path.DirectorySeparatorChar, 2);
+        var roots = GetPublicShareRoots();
+        var root = roots.Find(folder => string.Equals(folder.Key, parts[0], StringComparison.OrdinalIgnoreCase));
+        if (root == null)
+        {
+            // 旧客户端的目录名只有在唯一时才能解析。
+            var matches = roots.Where(folder => string.Equals(new DirectoryInfo(folder.Directory).Name,
+                parts[0], StringComparison.OrdinalIgnoreCase)).Take(2).ToArray();
+            if (matches.Length != 1) return null;
+            root = matches[0];
+        }
+        var relative = parts.Length > 1 ? parts[1] : "";
+        try
+        {
+            var fullPath = Path.GetFullPath(Path.Combine(root.Directory, relative));
+            if (!IsPathUnderDirectory(root.Directory, fullPath)) return null;
+            return (root, relative, fullPath);
+        }
+        catch (ArgumentException) { return null; }
+        catch (NotSupportedException) { return null; }
+        catch (PathTooLongException) { return null; }
     }
 
     public void EnsurePublicShareDirectories()
