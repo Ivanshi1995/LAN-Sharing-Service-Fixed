@@ -346,7 +346,7 @@ public class FileShareService
 
     public string GetPublicShareUrl(string host, int port)
     {
-        return $"http://{host}:{port}";
+        return $"{GetServerUrl(host, port)}/public";
     }
 
     public string GetPublicSharePath()

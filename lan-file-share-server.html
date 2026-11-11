@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8"/>
-<meta content="width=896, initial-scale=1.0" name="viewport"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>LanFileShare</title>
 <script src="/CDN/tailwindcss.js"></script>
 <script src="/CDN/xlsx.full.min.js"></script>
@@ -104,9 +104,23 @@
 </svg>
 <style>
     @import url('/CDN/google-fonts.css');
-    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
-    body { font-family: 'Inter', system-ui, -apple-system, sans-serif; font-size: 13px; display: flex; justify-content: center; align-items: flex-start; background: #f8fafc; }
-    #ui-scale-root { width: 896px; }
+    html, body { min-height: 100%; margin: 0; }
+    body { font-family: 'Inter', system-ui, -apple-system, sans-serif; font-size: 13px; background: #f8fafc; }
+    #ui-scale-root { width: 100%; max-width: 1200px; margin-inline: auto; }
+    [id^="modal-"].fixed > div { min-width: 0; max-height: 90dvh; overflow-y: auto; }
+    #modal-user-list > div { max-height: min(420px, 90dvh); }
+    #toast { width: max-content; max-width: calc(100% - 2rem); }
+    @media (max-width: 639px) {
+        #dashboard { display: flex; flex-direction: column; gap: 12px; }
+        #dashboard > .grid { display: contents; }
+        #dashboard > * { margin-top: 0; }
+        #status-card { order: 1; }
+        #public-share-card { order: 2; }
+        #activity-card { order: 3; }
+        #basic-settings-card { order: 4; }
+        #feature-options-card { order: 5; }
+        #logs-card { order: 6; }
+    }
     .font-mono { font-family: 'Fira Code', monospace; }
     .scrollbar-hide::-webkit-scrollbar { display: none; }
     .log-container {
@@ -130,12 +144,12 @@
 <body class="text-slate-900">
 <div id="ui-scale-root">
 <main class="w-full p-2 shrink-0">
-<div class="fade-in space-y-3">
+<div id="dashboard" class="fade-in space-y-3">
 
 <!-- 顶部状态 + 统计 -->
-<div class="grid grid-cols-3 gap-3">
-<div class="col-span-2 bg-white card shadow-sm border border-slate-200 p-3">
-<div class="flex flex-row items-center justify-between gap-2">
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-3">
+<div id="status-card" class="min-w-0 lg:col-span-2 bg-white card shadow-sm border border-slate-200 p-3">
+<div class="flex flex-wrap items-center justify-between gap-2">
 <div>
 <h2 class="text-base font-bold flex items-center gap-1.5">
                 服务器状态
@@ -146,7 +160,7 @@
 </h2>
 <p class="text-slate-500 text-xs mt-0.5" id="status-desc">当前正在监听局域网请求...</p>
 </div>
-<div class="flex gap-1.5 items-center">
+<div class="flex flex-wrap gap-1.5 items-center">
 <!-- 缓存限制 -->
 <div class="flex items-center gap-1 bg-white border border-slate-200 rounded-lg px-2 py-1 shadow-sm" title="缓存超限后清理按钮闪烁">
   <span class="text-[10px] text-slate-400">缓存</span>
@@ -168,11 +182,11 @@
 </button>
 </div>
 </div>
-<div class="mt-3 grid grid-cols-2 gap-2">
+<div class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
 <div class="space-y-1">
 <label class="text-xs font-medium text-slate-600 ml-0.5">客户端访问地址</label>
 <div class="flex gap-1.5">
-<div class="relative flex-1">
+<div class="relative flex-1 min-w-0">
 <svg class="iconify-icon absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-sm"><use href="#link_variant"/></svg>
 <input class="w-full pl-7 pr-2 py-1.5 bg-slate-50 border border-slate-200 rounded-md text-slate-700 font-mono text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all" id="server-url" readonly type="text"/>
 </div>
@@ -194,7 +208,7 @@
 </div>
 </div>
 </div>
-<div class="bg-slate-800 card shadow-sm p-3 text-white flex flex-col justify-between min-h-0">
+<div id="activity-card" class="bg-slate-800 card shadow-sm p-3 text-white flex flex-col justify-between min-h-0">
 <div class="flex items-center justify-between">
 <span class="text-slate-400 text-xs font-medium">活动连接</span>
 <svg class="iconify-icon text-blue-400 text-lg"><use href="#account_group"/></svg>
@@ -209,7 +223,7 @@
 <span class="text-[11px] font-medium text-green-400" id="count-online-users">0</span>
 </div>
 </div>
-<div class="mt-2 pt-2 border-t border-slate-700 flex justify-between text-[11px]">
+<div class="mt-2 pt-2 border-t border-slate-700 flex flex-wrap gap-x-2 justify-between text-[11px]">
 <span>上行: <span class="text-green-400" id="speed-upload">--</span></span>
 <span>下行: <span class="text-blue-400" id="speed-download">--</span></span>
 </div>
@@ -217,9 +231,53 @@
 </div>
 
 <!-- 设置区域 -->
-<div class="grid grid-cols-3 gap-3">
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+<!-- 公共共享 -->
+<div id="public-share-card" class="min-w-0 bg-white card shadow-sm border border-slate-200 p-3 space-y-3">
+<h3 class="text-sm font-bold flex items-center gap-1.5">
+<svg class="iconify-icon text-blue-600 text-base"><use href="#earth"/></svg>
+                        公共共享
+                    </h3>
+<div class="space-y-2">
+<div class="flex items-center justify-between p-2 bg-slate-50 rounded-lg">
+<div class="flex items-center gap-2 min-w-0">
+<div class="min-w-0">
+<div class="text-xs font-medium">启用公共共享</div>
+<div class="text-[11px] text-slate-500 truncate">无需登录即可浏览下载</div>
+</div>
+</div>
+<div class="flex items-center gap-2 shrink-0 ml-2">
+<label class="relative inline-flex items-center cursor-pointer shrink-0">
+<input class="sr-only peer" type="checkbox" id="public-share-toggle" aria-label="启用公共共享"/>
+<div class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+</label>
+</div>
+</div>
+<div class="space-y-2">
+<button type="button" class="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-medium disabled:opacity-50" id="public-browse-btn" onclick="selectPublicDirectories()">选择共享文件夹</button>
+<div id="public-dir-list" class="space-y-1 max-h-24 overflow-y-auto"></div>
+</div>
+<div class="hidden space-y-1" id="public-address-row">
+<label for="public-url" class="text-xs font-medium text-slate-600">公共共享地址</label>
+<div class="flex gap-1.5">
+<input id="public-url" class="min-w-0 flex-1 px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-md font-mono text-xs" readonly type="text"/>
+<button type="button" class="shrink-0 px-2 py-1.5 bg-blue-50 text-blue-700 rounded-md text-xs" onclick="copyUrl('public-url', '公共共享地址')">复制地址</button>
+</div>
+</div>
+<div class="hidden mt-2 flex items-center p-2 bg-slate-50 rounded-lg" id="public-readonly-row">
+<div class="text-xs text-slate-600">允许上传</div>
+<div class="text-xs text-slate-500 w-8 text-center flex-1" id="public-readonly-label">只读</div>
+<label class="relative inline-flex items-center cursor-pointer shrink-0">
+<input class="sr-only peer" type="checkbox" id="public-readonly-toggle" aria-label="允许上传"/>
+<div class="w-9 h-5 bg-amber-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+</label>
+</div>
+
+</div>
+</div>
+
 <!-- 基本设置 -->
-<div class="bg-white card shadow-sm border border-slate-200 p-3 space-y-3">
+<div id="basic-settings-card" class="min-w-0 bg-white card shadow-sm border border-slate-200 p-3 space-y-3">
 <h3 class="text-sm font-bold flex items-center gap-1.5">
 <svg class="iconify-icon text-blue-600 text-base"><use href="#cog_outline"/></svg>
                         基本设置
@@ -244,45 +302,8 @@
 </div>
 </div>
 
-<!-- 公共共享 -->
-<div class="bg-white card shadow-sm border border-slate-200 p-3 space-y-3">
-<h3 class="text-sm font-bold flex items-center gap-1.5">
-<svg class="iconify-icon text-blue-600 text-base"><use href="#earth"/></svg>
-                        公共共享
-                    </h3>
-<div class="space-y-2">
-<div class="flex items-center justify-between p-2 bg-slate-50 rounded-lg">
-<div class="flex items-center gap-2 min-w-0">
-<div class="min-w-0">
-<div class="text-xs font-medium">启用公共共享</div>
-<div class="text-[11px] text-slate-500 truncate">无需登录即可浏览下载</div>
-</div>
-</div>
-<div class="flex items-center gap-2 shrink-0 ml-2">
-<button class="hidden px-2 py-1 bg-white border border-slate-200 hover:border-blue-500 hover:text-blue-600 rounded-md text-[11px] font-medium shrink-0 transition-all" id="public-browse-btn" onclick="selectPublicDirectories()">浏览</button>
-<label class="relative inline-flex items-center cursor-pointer shrink-0">
-<input class="sr-only peer" type="checkbox" id="public-share-toggle"/>
-<div class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
-</label>
-</div>
-</div>
-<div class="hidden mt-1" id="public-dir-list-row">
-<div id="public-dir-list" class="space-y-0.5 max-h-14 overflow-y-auto"></div>
-</div>
-<div class="hidden mt-2 flex items-center p-2 bg-slate-50 rounded-lg" id="public-readonly-row">
-<div class="text-xs text-slate-600">允许上传</div>
-<div class="text-xs text-slate-500 w-8 text-center flex-1" id="public-readonly-label">只读</div>
-<label class="relative inline-flex items-center cursor-pointer shrink-0">
-<input class="sr-only peer" type="checkbox" id="public-readonly-toggle"/>
-<div class="w-9 h-5 bg-amber-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
-</label>
-</div>
-
-</div>
-</div>
-
 <!-- 功能选项 -->
-<div class="bg-white card shadow-sm border border-slate-200 p-3 space-y-3">
+<div id="feature-options-card" class="min-w-0 bg-white card shadow-sm border border-slate-200 p-3 space-y-3">
 <h3 class="text-sm font-bold flex items-center gap-1.5">
 <svg class="iconify-icon text-blue-600 text-base"><use href="#tune_vertical"/></svg>
                         功能选项
@@ -330,7 +351,7 @@
 </div>
 
 <!-- 运行日志 -->
-<div class="bg-slate-900 card shadow-sm overflow-hidden border border-slate-800">
+<div id="logs-card" class="bg-slate-900 card shadow-sm overflow-hidden border border-slate-800">
 <div class="px-3 py-2 border-b border-slate-800 flex justify-between items-center">
                     <div class="flex items-center gap-3">
                         <h3 class="text-slate-200 text-sm font-bold flex items-center gap-1.5">
@@ -369,8 +390,8 @@
 <svg class="iconify-icon text-lg"><use href="#close"/></svg>
 </button>
 </div>
-<div class="flex items-center gap-1.5 px-3 py-2 border-b border-slate-100 shrink-0">
-<input class="flex-1 px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-md text-[11px] text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20" id="user-search-input" placeholder="搜索用户..." oninput="filterUserList()"/>
+<div class="flex flex-wrap items-center gap-1.5 px-3 py-2 border-b border-slate-100 shrink-0">
+<input class="flex-1 min-w-24 px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-md text-[11px] text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20" id="user-search-input" placeholder="搜索用户..." oninput="filterUserList()"/>
 <input type="file" class="hidden" id="user-import-file" accept=".xlsx" onchange="onUserImportFileSelected(event)"/>
 <button type="button" class="px-2.5 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-md text-[11px] font-medium transition-all flex items-center gap-0.5 shrink-0" onclick="openUserImport()" title="从 Excel 批量导入">
 <svg class="iconify-icon"><use href="#file_import_outline"/></svg>
@@ -833,6 +854,8 @@ function formatBytes(bytes) {
 
 let _clientUrl = '';
 let _publicShareDirs = [];
+let _publicShareUrl = '';
+let _savingPublicDirectories = false;
 let _publicShareReadOnly = true;
 let _userShareDirs = [];
 
@@ -868,8 +891,8 @@ async function pollStatus() {
             btnCache.title = '清理缓存';
         }
 
-        if (s.publicShareUrl) _publicShareUrl = s.publicShareUrl;
-        if (Array.isArray(s.publicShareDirectories)) _publicShareDirs = s.publicShareDirectories;
+        _publicShareUrl = s.publicShareUrl || '';
+        if (!_savingPublicDirectories && Array.isArray(s.publicShareDirectories)) _publicShareDirs = s.publicShareDirectories;
         updatePublicShareUI();
         // 同步后端服务运行状态
         if (s.running !== fileShareRunning) {
@@ -898,12 +921,12 @@ function applyRunningState(running) {
     }
 }
 
-async function copyUrl() {
-    const urlInput = document.getElementById('server-url');
+async function copyUrl(inputId = 'server-url', label = '客户端地址') {
+    const urlInput = document.getElementById(inputId);
     try {
         await navigator.clipboard.writeText(urlInput.value);
-        showToast('客户端地址已复制到剪贴板');
-        logAction('复制客户端地址', urlInput.value);
+        showToast(label + '已复制到剪贴板');
+        logAction('复制' + label, urlInput.value);
     } catch (_) {
         urlInput.select();
         showToast('请手动 Ctrl+C 复制');
@@ -1049,79 +1072,72 @@ async function cleanCache() {
 
 function updatePublicShareUI() {
     const enabled = document.getElementById('public-share-toggle').checked;
-    const browseBtn = document.getElementById('public-browse-btn');
-    const dirListRow = document.getElementById('public-dir-list-row');
-    const readonlyRow = document.getElementById('public-readonly-row');
-    const readonlyToggle = document.getElementById('public-readonly-toggle');
-    const readonlyLabel = document.getElementById('public-readonly-label');
-    if (enabled) {
-        browseBtn.classList.remove('hidden');
-        renderPublicDirList();
-        dirListRow.classList.remove('hidden');
-        readonlyRow.classList.remove('hidden');
-        readonlyToggle.checked = !_publicShareReadOnly;
-        readonlyLabel.textContent = _publicShareReadOnly ? '只读' : '读写';
-    } else {
-        browseBtn.classList.add('hidden');
-        dirListRow.classList.add('hidden');
-        readonlyRow.classList.add('hidden');
-    }
+    document.getElementById('public-readonly-row').classList.toggle('hidden', !enabled);
+    document.getElementById('public-readonly-toggle').checked = !_publicShareReadOnly;
+    document.getElementById('public-readonly-label').textContent = _publicShareReadOnly ? '只读' : '读写';
+    document.getElementById('public-address-row').classList.toggle('hidden', !enabled || !_publicShareUrl);
+    document.getElementById('public-url').value = _publicShareUrl;
+    renderPublicDirList();
 }
 
 function renderPublicDirList() {
     const container = document.getElementById('public-dir-list');
     const dirs = _publicShareDirs || [];
     if (dirs.length === 0) {
-        container.innerHTML = '<div class="text-[11px] text-slate-400 p-2 text-center">尚未添加共享目录，请点击"浏览"选择</div>';
+        container.innerHTML = '<div class="text-xs text-slate-500">尚未添加文件夹。点击上方按钮选择。</div>';
         return;
     }
     let html = '';
     dirs.forEach((dir, idx) => {
         html += '<div class="flex items-center gap-1 p-1 bg-slate-50 rounded-md group">' +
             '<span class="flex-1 text-[11px] text-slate-600 font-mono truncate" title="' + statusEsc(dir) + '">' + statusEsc(dir) + '</span>' +
-            '<button class="p-0.5 text-slate-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100" onclick="removePublicDir(' + idx + ')" title="移除">' +
-            '<svg class="iconify-icon text-sm"><use href="#close"/></svg></button>' +
+            '<button type="button" class="shrink-0 px-1 text-xs text-slate-500 hover:text-red-600" onclick="removePublicDir(' + idx + ')" title="移除共享目录">移除</button>' +
             '</div>';
     });
     container.innerHTML = html;
 }
 
 async function selectPublicDirectories() {
+    if (_savingPublicDirectories || _folderMultiPickerCallback) return;
     const paths = await openFolderMultiPicker('选择公共共享目录（可多选）');
-    if (paths && paths.length > 0) {
-        // 合并去重
-        const existing = new Set(_publicShareDirs);
-        for (const p of paths) {
-            if (!existing.has(p)) {
-                _publicShareDirs.push(p);
-                existing.add(p);
-            }
-        }
-        renderPublicDirList();
-        await savePublicShareDirectories();
-        showToast('已添加 ' + paths.length + ' 个共享目录');
+    if (!paths?.length) return;
+    const dirs = [...new Set([..._publicShareDirs, ...paths])];
+    if (dirs.length === _publicShareDirs.length) return;
+    if (await savePublicShareDirectories(dirs)) {
+        showToast('已保存共享文件夹');
         logAction('添加公共共享目录', paths.join(', '));
     }
 }
 
-function removePublicDir(idx) {
-    if (idx < 0 || idx >= _publicShareDirs.length) return;
+async function removePublicDir(idx) {
+    if (_savingPublicDirectories || idx < 0 || idx >= _publicShareDirs.length) return;
     const removed = _publicShareDirs[idx];
-    _publicShareDirs.splice(idx, 1);
-    renderPublicDirList();
-    savePublicShareDirectories();
-    logAction('移除公共共享目录', removed);
+    if (await savePublicShareDirectories(_publicShareDirs.filter((_, index) => index !== idx))) {
+        logAction('移除公共共享目录', removed);
+    }
 }
 
-async function savePublicShareDirectories() {
+async function savePublicShareDirectories(dirs) {
+    const button = document.getElementById('public-browse-btn');
+    _savingPublicDirectories = true;
+    button.disabled = true;
     try {
-        await fetch('/api/settings', {
+        const response = await fetch('/api/settings', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ publicShareDirectories: _publicShareDirs })
+            body: JSON.stringify({ publicShareDirectories: dirs })
         });
-        await pollStatus();
-    } catch (e) {}
+        if (!response.ok || !(await response.json()).success) throw new Error();
+        _publicShareDirs = dirs;
+        renderPublicDirList();
+        return true;
+    } catch (_) {
+        showToast('共享文件夹保存失败，请重试');
+        return false;
+    } finally {
+        _savingPublicDirectories = false;
+        button.disabled = false;
+    }
 }
 
 

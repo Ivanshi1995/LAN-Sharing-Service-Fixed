@@ -31,8 +31,6 @@ public partial class MainForm : Form
     private const int ServerPollIntervalMs = 100;
     private const int NavigationRetryDelayMs = 200;
     private const int CacheCheckIntervalMs = 30 * 60 * 1000;
-    private const double UiDesignWidth = 896;
-    private double _uiBaseClientHeight;
 
     public MainForm(string serverUrl, bool minimizeToTray, Icon appIcon, FileShareSettings settings, FileShareService? service = null, bool forceBrowser = false)
     {
@@ -44,7 +42,7 @@ public partial class MainForm : Form
         catch { _useBrowserFallback = true; }
 
         this.Text = $"LanFileShare 服务端 {AppVersion.Version}";
-        this.MinimumSize = new Size(917, 642);
+        this.MinimumSize = new Size(520, 400);
         this.Icon = _appIcon;
         this.ShowInTaskbar = true;
 
@@ -134,7 +132,6 @@ public partial class MainForm : Form
         if (args.IsSuccess && args.HttpStatusCode is >= 200 and < 400)
         {
             HideLoadingOverlay();
-            BeginInvoke(UpdateWebViewZoom);
             return;
         }
 
@@ -160,25 +157,6 @@ public partial class MainForm : Form
 
             await Task.Delay(ServerPollIntervalMs);
         }
-    }
-
-    private void UpdateWebViewZoom()
-    {
-        if (_webView?.CoreWebView2 == null) return;
-
-        var w = ClientSize.Width;
-        var h = ClientSize.Height;
-        if (w <= 0 || h <= 0) return;
-
-        if (_uiBaseClientHeight <= 0)
-            _uiBaseClientHeight = h;
-
-        var scaleW = w / UiDesignWidth;
-        var scaleH = h / _uiBaseClientHeight;
-        var scale = Math.Max(1.0, Math.Min(scaleW, scaleH));
-
-        if (Math.Abs(_webView.ZoomFactor - scale) > 0.001)
-            _webView.ZoomFactor = scale;
     }
 
     protected override async void OnLoad(EventArgs e)
@@ -594,7 +572,6 @@ public partial class MainForm : Form
 
     private void OnResize(object? sender, EventArgs e)
     {
-        UpdateWebViewZoom();
         if (_minimizeToTray && this.WindowState == FormWindowState.Minimized)
         {
             this.Hide();
