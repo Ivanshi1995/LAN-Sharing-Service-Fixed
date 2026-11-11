@@ -1410,130 +1410,6 @@ public class Program
             });
         });
 
-        // API: 浏览服务器目录（管理员目录选择器用）
-        app.MapGet("/api/browse-folders", (HttpContext ctx, string? path) =>
-        {
-            if (!IsAdminRequest(ctx, authService, userService)) return Results.Json(new { error = "Forbidden" }, statusCode: 403);
-            try
-            {
-                List<object> dirs;
-
-                // path 为空或为 "roots"：返回所有可用盘符
-                if (string.IsNullOrWhiteSpace(path) || path == "roots")
-                {
-                    dirs = new List<object>();
-                    foreach (var drive in DriveInfo.GetDrives())
-                    {
-                        if (!drive.IsReady) continue;
-                        try
-                        {
-                            var rootPath = drive.RootDirectory.FullName; // 保留末尾反斜杠，如 C:\
-                            var hasChildren = false;
-                            try { hasChildren = Directory.GetDirectories(rootPath).Length > 0; } catch { }
-                            dirs.Add(new
-                            {
-                                name = $"{drive.Name.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)} ({drive.VolumeLabel})",
-                                path = rootPath,
-                                hasChildren
-                            });
-                        }
-                        catch { }
-                    }
-                    return Results.Json(new { success = true, currentPath = "roots", dirs });
-                }
-
-                var currentPath = NormalizeBrowseFolderPath(path);
-                if (!Directory.Exists(currentPath)) return Results.Json(new { success = false, error = "目录不存在" }, statusCode: 404);
-
-                dirs = new List<object>();
-                foreach (var dir in Directory.GetDirectories(currentPath))
-                {
-                    var dirInfo = new DirectoryInfo(dir);
-                    if ((dirInfo.Attributes & FileAttributes.Hidden) != 0) continue;
-                    var hasChildren = false;
-                    try { hasChildren = Directory.GetDirectories(dir).Length > 0; } catch { }
-                    dirs.Add(new
-                    {
-                        name = Path.GetFileName(dir),
-                        path = dir,
-                        hasChildren
-                    });
-                }
-                dirs.Sort((a, b) => string.Compare(((dynamic)a).name, ((dynamic)b).name, StringComparison.OrdinalIgnoreCase));
-
-                return Results.Json(new { success = true, currentPath, dirs });
-            }
-            catch (Exception ex)
-            {
-                service.AddLog("ERROR", "API", $"浏览目录失败: {ex.Message}");
-                return Results.Json(new { success = false, error = "加载目录失败" }, statusCode: 500);
-            }
-        });
-
-        // API: 创建目录（管理员目录选择器用）
-        app.MapPost("/api/browse-folders/create", async (HttpContext ctx) =>
-        {
-            if (!IsAdminRequest(ctx, authService, userService)) return Results.Json(new { error = "Forbidden" }, statusCode: 403);
-            using var reader = new StreamReader(ctx.Request.Body);
-            var json = await reader.ReadToEndAsync();
-            using var doc = JsonDocument.Parse(json);
-            var root = doc.RootElement;
-            var parent = root.TryGetProperty("parent", out var p) ? p.GetString() ?? "" : "";
-            var name = root.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "";
-            if (string.IsNullOrWhiteSpace(parent) || string.IsNullOrWhiteSpace(name))
-                return Results.Json(new { success = false, error = "参数缺失" }, statusCode: 400);
-            try
-            {
-                var parentPath = Path.GetFullPath(parent);
-                if (!Directory.Exists(parentPath)) return Results.Json(new { success = false, error = "父目录不存在" }, statusCode: 404);
-                var newPath = Path.Combine(parentPath, name);
-                if (Directory.Exists(newPath)) return Results.Json(new { success = false, error = "目录已存在" }, statusCode: 409);
-                Directory.CreateDirectory(newPath);
-                return Results.Json(new { success = true, path = newPath });
-            }
-            catch (Exception ex)
-            {
-                return Results.Json(new { success = false, error = ex.Message }, statusCode: 500);
-            }
-        });
-
-        app.MapPost("/api/select-user-directory", async (HttpContext ctx) =>
-        {
-            if (!IsAdminRequest(ctx, authService, userService)) { ctx.Response.StatusCode = 403; await ctx.Response.WriteAsJsonAsync(new { error = "Forbidden" }); return; }
-            var tcs = new TaskCompletionSource<string?>();
-            if (_uiContext == null)
-            {
-                service.AddLog("ERROR", "服务端", "无法打开目录对话框");
-                await ctx.Response.WriteAsJsonAsync(new { success = false, error = "UI 上下文未初始化" });
-                return;
-            }
-            _uiContext.Post(_ =>
-            {
-                try
-                {
-                    var baseDir = service.GetFullUploadPath();
-                    var path = LanFileShare.Services.ModernFolderDialog.Show("选择该用户的共享文件夹", baseDir);
-                    tcs.SetResult(path);
-                }
-                catch (Exception ex) { tcs.SetException(ex); }
-            }, null);
-            try
-            {
-                var path = await tcs.Task;
-                ctx.Response.ContentType = "application/json; charset=utf-8";
-                if (string.IsNullOrEmpty(path))
-                    await ctx.Response.WriteAsync(System.Text.Json.JsonSerializer.Serialize(new { success = false, error = "未选择目录" }));
-                else
-                    await ctx.Response.WriteAsync(System.Text.Json.JsonSerializer.Serialize(new { success = true, path }));
-            }
-            catch (Exception ex)
-            {
-                ctx.Response.StatusCode = 500;
-                ctx.Response.ContentType = "application/json; charset=utf-8";
-                await ctx.Response.WriteAsync(System.Text.Json.JsonSerializer.Serialize(new { success = false, error = ex.InnerException?.Message ?? ex.Message ?? "未知错误" }));
-            }
-        });
-
         // API: 分享 - 获取可分享目标用户列表及当前用户的文件夹列表
         app.MapGet("/api/share/target-users", (HttpContext ctx) =>
         {
@@ -2535,10 +2411,10 @@ public class Program
             }
         });
 
-        app.MapPost("/api/select-public-directory", async (HttpContext ctx) =>
+        app.MapPost("/api/select-folders", async (HttpContext ctx, NativeFolderPickerRequest request) =>
         {
             if (!CanUseNativeFolderPicker(ctx) || ctx.Request.Headers["X-LanFileShare-Folder-Picker"] != "1")
-                return Results.Json(new { success = false }, statusCode: 403);
+                return Results.Json(new { success = false, error = "请在运行 EXE 的电脑上选择文件夹。" }, statusCode: 403);
             if (!_nativeFolderPicker.Wait(0))
                 return Results.Json(new { success = false, error = "请先关闭已打开的选择窗口。" }, statusCode: 409);
 
@@ -2550,8 +2426,9 @@ public class Program
                     try
                     {
                         var owner = _mainForm is { Visible: true } form ? form.Handle : IntPtr.Zero;
-                        var paths = LanFileShare.Services.ModernFolderDialog.ShowMultiSelect(
-                            "选择共享文件夹", service.GetPublicSharePaths().FirstOrDefault(), owner);
+                        var title = request.Multiple ? "选择共享文件夹" : "选择默认共享文件夹";
+                        var initialPath = request.InitialPath is { } path && Path.IsPathFullyQualified(path) ? path : null;
+                        var paths = Services.ModernFolderDialog.ShowFolders(title, initialPath, owner, request.Multiple);
                         selection.TrySetResult(paths);
                     }
                     catch (Exception ex) { selection.TrySetException(ex); }
@@ -2563,7 +2440,7 @@ public class Program
             catch (Exception ex)
             {
                 service.AddLog("ERROR", "服务端", $"打开 Windows 文件夹选择窗口失败: {ex.Message}");
-                return Results.Json(new { success = false, error = "无法打开 Windows 选择窗口。请在网页中选择。" }, statusCode: 500);
+                return Results.Json(new { success = false, error = "无法打开 Windows 选择窗口。请重试。" }, statusCode: 500);
             }
             finally { _nativeFolderPicker.Release(); }
         });
@@ -3658,6 +3535,8 @@ public class Program
             service.TrackUserDownloadBytes(userId, batchBytes);
     }
 }
+
+internal sealed record NativeFolderPickerRequest(string? InitialPath, bool Multiple = true);
 
 public class ChatFileMeta
 {

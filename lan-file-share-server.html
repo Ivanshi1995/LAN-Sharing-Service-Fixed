@@ -254,7 +254,8 @@
 </div>
 </div>
 <div class="space-y-2">
-<button type="button" class="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-medium disabled:opacity-50" id="public-browse-btn" onclick="selectPublicDirectories()">选择共享文件夹 · 可多选</button>
+<button type="button" class="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-medium disabled:opacity-50" id="public-browse-btn" onclick="selectPublicDirectories()">添加共享文件夹</button>
+<p id="public-folder-picker-hint" class="hidden text-xs text-slate-500">请在运行 EXE 的电脑上添加共享文件夹。</p>
 <div id="public-dir-list" class="space-y-1 max-h-24 overflow-y-auto"></div>
 </div>
 <div class="hidden space-y-1" id="public-address-row">
@@ -446,8 +447,8 @@
 <div>
 <label class="text-[11px] font-medium text-slate-500 mb-1 block">默认共享目录（行内未填写时使用）</label>
 <div class="flex gap-1.5">
-<input class="flex-1 min-w-0 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-md text-slate-700 text-[11px] focus:outline-none" id="user-import-default-folder" placeholder="可选" readonly/>
-<button type="button" class="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg text-[11px] font-medium shrink-0" onclick="selectImportDefaultFolder()">浏览</button>
+<input class="flex-1 min-w-0 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-md text-slate-700 text-[11px] focus:outline-none" id="user-import-default-folder" readonly/>
+<button type="button" class="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg text-[11px] font-medium shrink-0" onclick="selectImportDefaultFolder()">选择文件夹</button>
 </div>
 </div>
 <div>
@@ -857,6 +858,7 @@ let _publicShareDirs = [];
 let _publicShareUrl = '';
 let _savingPublicDirectories = false;
 let _canUseNativeFolderPicker = false;
+let _nativeFolderPickerBusy = false;
 let _publicShareReadOnly = true;
 let _userShareDirs = [];
 
@@ -894,7 +896,6 @@ async function pollStatus() {
 
         _publicShareUrl = s.publicShareUrl || '';
         _canUseNativeFolderPicker = s.nativeFolderPicker === true;
-        updateNativeFolderPickerButton();
         if (!_savingPublicDirectories && Array.isArray(s.publicShareDirectories)) _publicShareDirs = s.publicShareDirectories;
         updatePublicShareUI();
         // 同步后端服务运行状态
@@ -1080,6 +1081,7 @@ function updatePublicShareUI() {
     document.getElementById('public-readonly-label').textContent = _publicShareReadOnly ? '只读' : '读写';
     document.getElementById('public-address-row').classList.toggle('hidden', !enabled || !_publicShareUrl);
     document.getElementById('public-url').value = _publicShareUrl;
+    document.getElementById('public-folder-picker-hint').classList.toggle('hidden', _canUseNativeFolderPicker);
     renderPublicDirList();
 }
 
@@ -1087,7 +1089,7 @@ function renderPublicDirList() {
     const container = document.getElementById('public-dir-list');
     const dirs = _publicShareDirs || [];
     if (dirs.length === 0) {
-        container.innerHTML = '<div class="text-xs text-slate-500">尚未添加文件夹。点击上方按钮选择。</div>';
+        container.innerHTML = '<div class="text-xs text-slate-500">尚未添加共享文件夹。</div>';
         return;
     }
     let html = '';
@@ -1101,17 +1103,23 @@ function renderPublicDirList() {
 }
 
 async function selectPublicDirectories() {
-    if (_savingPublicDirectories || _folderMultiPickerCallback) return;
-    const paths = await openFolderMultiPicker('选择共享文件夹', _publicShareDirs);
-    if (paths === null || JSON.stringify(paths) === JSON.stringify(_publicShareDirs)) return;
-    if (await savePublicShareDirectories(paths)) {
-        showToast('已保存 ' + paths.length + ' 个共享文件夹');
-        logAction('更新公共共享目录', paths.join(', '));
+    if (_savingPublicDirectories || _nativeFolderPickerBusy) return;
+    const selected = await chooseFoldersWithWindows(_publicShareDirs[0]);
+    if (selected.length === 0) return;
+
+    const added = newFolderPaths(_publicShareDirs, selected);
+    if (added.length === 0) {
+        showToast('所选文件夹已在共享清单中');
+        return;
+    }
+    if (await savePublicShareDirectories([..._publicShareDirs, ...added])) {
+        showToast('已添加 ' + added.length + ' 个共享文件夹');
+        logAction('添加公共共享目录', added.join(', '));
     }
 }
 
 async function removePublicDir(idx) {
-    if (_savingPublicDirectories || idx < 0 || idx >= _publicShareDirs.length) return;
+    if (_savingPublicDirectories || _nativeFolderPickerBusy || idx < 0 || idx >= _publicShareDirs.length) return;
     const removed = _publicShareDirs[idx];
     if (await savePublicShareDirectories(_publicShareDirs.filter((_, index) => index !== idx))) {
         logAction('移除公共共享目录', removed);
@@ -1137,7 +1145,7 @@ async function savePublicShareDirectories(dirs) {
         return false;
     } finally {
         _savingPublicDirectories = false;
-        button.disabled = false;
+        button.disabled = _nativeFolderPickerBusy;
     }
 }
 
@@ -1315,8 +1323,7 @@ function updateModalOverflow() {
     const updateOpen = !document.getElementById('modal-update').classList.contains('hidden');
     const portOpen = !document.getElementById('modal-port').classList.contains('hidden');
     const restartOpen = !document.getElementById('modal-restart-confirm').classList.contains('hidden');
-    const folderOpen = !document.getElementById('modal-folder-picker').classList.contains('hidden');
-    document.body.style.overflow = (listOpen || formOpen || importOpen || updateOpen || portOpen || restartOpen || folderOpen) ? 'hidden' : '';
+    document.body.style.overflow = (listOpen || formOpen || importOpen || updateOpen || portOpen || restartOpen) ? 'hidden' : '';
 }
 
 function openUserList() {
@@ -1449,18 +1456,18 @@ function renderUserDirList() {
 }
 
 async function selectUserFolders() {
-    const paths = await openFolderMultiPicker('选择共享目录（可多选）');
-    if (paths && paths.length > 0) {
-        const existing = new Set(_userShareDirs);
-        for (const p of paths) {
-            if (!existing.has(p)) {
-                _userShareDirs.push(p);
-                existing.add(p);
-            }
-        }
-        renderUserDirList();
-        showToast('已添加 ' + paths.length + ' 个共享目录');
+    const currentFolders = _userShareDirs;
+    const selected = await chooseFoldersWithWindows(currentFolders[0]);
+    if (selected.length === 0 || currentFolders !== _userShareDirs) return;
+
+    const added = newFolderPaths(currentFolders, selected);
+    if (added.length === 0) {
+        showToast('所选文件夹已在共享清单中');
+        return;
     }
+    currentFolders.push(...added);
+    renderUserDirList();
+    showToast('已添加 ' + added.length + ' 个共享文件夹');
 }
 
 function removeUserDir(idx) {
@@ -1469,296 +1476,53 @@ function removeUserDir(idx) {
     renderUserDirList();
 }
 
-async function selectUserFolder() {
-    // 兼容旧的单文件夹选择，使用多选模式
-    const paths = await openFolderMultiPicker('选择共享目录（可多选）');
-    if (paths && paths.length > 0) {
-        const existing = new Set(_userShareDirs);
-        for (const p of paths) {
-            if (!existing.has(p)) {
-                _userShareDirs.push(p);
-                existing.add(p);
-            }
-        }
-        renderUserDirList();
-        showToast('已添加 ' + paths.length + ' 个共享目录');
-    }
-}
-
 async function selectImportDefaultFolder() {
-    const paths = await openFolderMultiPicker('选择默认共享目录（可多选）');
-    if (paths && paths.length > 0) {
-        document.getElementById('user-import-default-folder').value = paths[0];
+    const input = document.getElementById('user-import-default-folder');
+    const paths = await chooseFoldersWithWindows(input.value, false);
+    if (paths.length > 0 && !document.getElementById('modal-user-import').classList.contains('hidden')) {
+        input.value = paths[0];
     }
 }
 
-// 目录选择器状态
-let _folderPickerPath = '';
-let _folderPickerCallback = null;
-let _folderPickerDirs = [];
-
-async function openFolderPicker(title) {
-    return new Promise((resolve) => {
-        _folderPickerCallback = resolve;
-        _folderPickerPath = '';
-        document.getElementById('folder-picker-title').textContent = title || '选择目录';
-        document.getElementById('modal-folder-picker').classList.remove('hidden');
-        updateModalOverflow();
-        loadFolderPicker('roots');
+function newFolderPaths(existing, selected) {
+    const key = path => path.replaceAll('/', '\\').replace(/\\+$/, '').toUpperCase();
+    const seen = new Set(existing.map(key));
+    return selected.filter(path => {
+        const normalized = key(path);
+        if (seen.has(normalized)) return false;
+        seen.add(normalized);
+        return true;
     });
 }
 
-function closeFolderPicker() {
-    document.getElementById('modal-folder-picker').classList.add('hidden');
-    document.getElementById('folder-picker-confirm-btn').classList.add('hidden');
-    document.getElementById('folder-picker-select-btn').classList.remove('hidden');
-    document.getElementById('folder-picker-selection').classList.add('hidden');
-    updateModalOverflow();
-    if (_folderPickerCallback) { _folderPickerCallback(null); _folderPickerCallback = null; }
-    if (_folderMultiPickerCallback) { _folderMultiPickerCallback(null); _folderMultiPickerCallback = null; }
-}
-
-function confirmFolderPicker() {
-    document.getElementById('modal-folder-picker').classList.add('hidden');
-    document.getElementById('folder-picker-confirm-btn').classList.add('hidden');
-    document.getElementById('folder-picker-select-btn').classList.remove('hidden');
-    updateModalOverflow();
-    if (_folderPickerCallback) { _folderPickerCallback(_folderPickerPath); _folderPickerCallback = null; }
-}
-
-// 多选文件夹选择器状态
-let _folderMultiPickerPath = '';
-let _folderMultiPickerCallback = null;
-let _folderMultiPickerSelected = new Map();
-let _folderMultiPickerHadSelection = false;
-let _folderMultiPickerRequest = 0;
-let _nativeFolderPickerBusy = false;
-
-function folderSelectionKey(path) {
-    return path.replaceAll('/', '\\').replace(/\\+$/, '').toUpperCase();
-}
-
-async function openFolderMultiPicker(title, initialPaths = []) {
-    return new Promise((resolve) => {
-        _folderMultiPickerCallback = resolve;
-        _folderMultiPickerPath = '';
-        _folderMultiPickerSelected = new Map(initialPaths.map(path => [folderSelectionKey(path), path]));
-        _folderMultiPickerHadSelection = initialPaths.length > 0;
-        document.getElementById('folder-picker-title').textContent = title || '选择目录（可多选）';
-        document.getElementById('modal-folder-picker').classList.remove('hidden');
-        // 多选模式下显示确认按钮，隐藏原有的"选择此目录"
-        document.getElementById('folder-picker-confirm-btn').classList.remove('hidden');
-        document.getElementById('folder-picker-select-btn').classList.add('hidden');
-        document.getElementById('folder-picker-selection').classList.remove('hidden');
-        renderFolderSelection();
-        updateModalOverflow();
-        loadFolderMultiPicker('roots');
-    });
-}
-
-function confirmFolderMultiPicker() {
-    const resolve = _folderMultiPickerCallback;
-    if (!resolve || _nativeFolderPickerBusy) return;
-    const paths = Array.from(_folderMultiPickerSelected.values());
-    _folderMultiPickerCallback = null;
-    closeFolderPicker();
-    resolve(paths);
-}
-
-function updateNativeFolderPickerButton() {
-    const button = document.getElementById('folder-picker-native-btn');
-    button.classList.toggle('hidden', !_canUseNativeFolderPicker || !_folderMultiPickerCallback);
-    button.disabled = _nativeFolderPickerBusy;
-}
-
-function renderFolderSelection() {
-    const count = _folderMultiPickerSelected.size;
-    document.getElementById('folder-picker-selected-count').textContent = '已选 ' + count + ' 个文件夹';
-    document.getElementById('folder-picker-confirm-btn').disabled = _nativeFolderPickerBusy || (count === 0 && !_folderMultiPickerHadSelection);
-    const list = document.getElementById('folder-picker-selected-list');
-    list.innerHTML = Array.from(_folderMultiPickerSelected.values(), path =>
-        '<div class="flex gap-2 items-center"><span class="min-w-0 flex-1 truncate" title="' + escHtml(path) + '">' + escHtml(path) + '</span>' +
-        '<button type="button" class="shrink-0 text-slate-600 hover:text-red-600" data-folder-path="' + escHtml(path) +
-        '" onclick="toggleMultiPickerDir(this.dataset.folderPath, false)">移除</button></div>').join('');
-    list.classList.toggle('hidden', count === 0);
-    for (const checkbox of document.querySelectorAll('#folder-picker-list input[data-folder-path]')) {
-        checkbox.checked = _folderMultiPickerSelected.has(folderSelectionKey(checkbox.dataset.folderPath));
+async function chooseFoldersWithWindows(initialPath, multiple = true) {
+    if (_nativeFolderPickerBusy) return [];
+    if (!_canUseNativeFolderPicker) {
+        showToast('请在运行 EXE 的电脑上选择文件夹');
+        return [];
     }
-    const current = document.getElementById('folder-picker-current-btn');
-    current.disabled = !_folderMultiPickerPath || _folderMultiPickerPath === 'roots';
-    current.textContent = _folderMultiPickerSelected.has(folderSelectionKey(_folderMultiPickerPath)) ? '取消选择当前文件夹' : '选择当前文件夹';
-    updateNativeFolderPickerButton();
-}
 
-async function chooseFoldersWithWindows() {
-    const resolve = _folderMultiPickerCallback;
-    if (!resolve || !_canUseNativeFolderPicker || _nativeFolderPickerBusy) return;
+    const publicButton = document.getElementById('public-browse-btn');
     _nativeFolderPickerBusy = true;
-    renderFolderSelection();
+    publicButton.disabled = true;
     try {
-        const response = await fetch('/api/select-public-directory', {
+        const response = await fetch('/api/select-folders', {
             method: 'POST',
-            headers: { 'X-LanFileShare-Folder-Picker': '1' }
+            headers: { 'Content-Type': 'application/json', 'X-LanFileShare-Folder-Picker': '1' },
+            body: JSON.stringify({ initialPath, multiple })
         });
         const result = await response.json();
-        if (_folderMultiPickerCallback !== resolve) return;
-        if (!response.ok || !result.success) throw new Error(result.error);
-        for (const path of result.paths) {
-            const key = folderSelectionKey(path);
-            if (!_folderMultiPickerSelected.has(key)) _folderMultiPickerSelected.set(key, path);
+        if (!response.ok || !result.success) {
+            showToast(result.error || '无法打开 Windows 选择窗口。请重试。');
+            return [];
         }
+        return result.paths;
     } catch (_) {
-        if (_folderMultiPickerCallback === resolve)
-            showToast('无法打开 Windows 选择窗口。请在网页中选择。');
+        showToast('无法打开 Windows 选择窗口。请重试。');
+        return [];
     } finally {
         _nativeFolderPickerBusy = false;
-        renderFolderSelection();
-    }
-}
-
-async function loadFolderMultiPicker(path) {
-    const request = ++_folderMultiPickerRequest;
-    const listEl = document.getElementById('folder-picker-list');
-    listEl.innerHTML = '<div class="text-center text-xs text-slate-400 py-8">加载中...</div>';
-    _folderMultiPickerPath = '';
-    renderFolderSelection();
-    try {
-        const res = await fetch('/api/browse-folders?path=' + encodeURIComponent(path || ''), { method: 'GET' });
-        const data = await res.json();
-        if (request !== _folderMultiPickerRequest || !_folderMultiPickerCallback) return;
-        if (!data.success) { listEl.innerHTML = '<div class="text-center text-xs text-red-400 py-8">' + escHtml(data.error || '加载失败') + '</div>'; return; }
-        _folderMultiPickerPath = data.currentPath;
-        renderFolderPickerBreadcrumb(data.currentPath);
-        renderFolderMultiPickerList(data.dirs || []);
-        renderFolderSelection();
-    } catch (err) {
-        if (request !== _folderMultiPickerRequest || !_folderMultiPickerCallback) return;
-        listEl.innerHTML = '<div class="text-center text-xs text-red-400 py-8">加载失败: ' + escHtml(err.message) + '</div>';
-    }
-}
-
-function renderFolderMultiPickerList(dirs) {
-    const listEl = document.getElementById('folder-picker-list');
-    if (dirs.length === 0) { listEl.innerHTML = '<div class="text-center text-xs text-slate-400 py-8">此目录为空</div>'; return; }
-    let html = '';
-    for (const d of dirs) {
-        const attr = ' data-folder-path="' + escHtml(d.path) + '"';
-        html += '<div class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-50">' +
-            '<input type="checkbox" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500 shrink-0" aria-label="选择 ' +
-            escHtml(d.name) + '"' + attr + ' onchange="toggleMultiPickerDir(this.dataset.folderPath, this.checked)"/>' +
-            '<button type="button" class="flex flex-1 min-w-0 items-center gap-2 text-left text-sm text-slate-700"' + attr +
-            ' onclick="loadFolderMultiPicker(this.dataset.folderPath)"><svg class="iconify-icon text-amber-400 text-lg"><use href="#folder"/></svg>' +
-            '<span class="min-w-0 flex-1 truncate">' + escHtml(d.name) + '</span><svg class="iconify-icon text-slate-300"><use href="#chevron_right"/></svg></button>' +
-            '</div>';
-    }
-    listEl.innerHTML = html;
-}
-
-function toggleMultiPickerDir(path, add) {
-    const key = folderSelectionKey(path);
-    if (add) {
-        if (!_folderMultiPickerSelected.has(key)) _folderMultiPickerSelected.set(key, path);
-    } else {
-        _folderMultiPickerSelected.delete(key);
-    }
-    renderFolderSelection();
-}
-
-async function loadFolderPicker(path) {
-    const listEl = document.getElementById('folder-picker-list');
-    listEl.innerHTML = '<div class="text-center text-xs text-slate-400 py-8">加载中...</div>';
-    try {
-        const res = await fetch('/api/browse-folders?path=' + encodeURIComponent(path || ''), { method: 'GET' });
-        const data = await res.json();
-        if (!data.success) { listEl.innerHTML = '<div class="text-center text-xs text-red-400 py-8">' + escHtml(data.error || '加载失败') + '</div>'; return; }
-        _folderPickerPath = data.currentPath;
-        _folderPickerDirs = data.dirs || [];
-        renderFolderPickerBreadcrumb(data.currentPath);
-        renderFolderPickerList(data.dirs || []);
-    } catch (err) {
-        listEl.innerHTML = '<div class="text-center text-xs text-red-400 py-8">加载失败: ' + escHtml(err.message) + '</div>';
-    }
-}
-
-function renderFolderPickerBreadcrumb(fullPath) {
-    const el = document.getElementById('folder-picker-breadcrumb');
-    if (!fullPath) { el.innerHTML = ''; return; }
-
-    // 盘符级别：只显示"此电脑"
-    if (fullPath === 'roots') {
-        el.innerHTML = '<span class="text-slate-700 font-medium">此电脑</span>';
-        return;
-    }
-
-    // 多选/单选模式使用不同的导航函数
-    const loadFn = _folderMultiPickerCallback ? 'loadFolderMultiPicker' : 'loadFolderPicker';
-
-    // Windows 路径: C:\Users\... -> 拆分为 C: 和后面的部分
-    const parts = fullPath.split(/[\\\/]/).filter(Boolean);
-    let html = '<button class="hover:text-blue-600 transition-colors" onclick="' + loadFn + '(\'roots\')">此电脑</button>';
-    let acc = '';
-    for (let i = 0; i < parts.length; i++) {
-        // 盘符段（如 D:）必须带反斜杠，否则 Path.GetFullPath("D:") 会解析为 D 盘当前工作目录
-        if (i === 0 && /^[A-Za-z]:$/.test(parts[i])) {
-            acc = parts[i] + '\\';
-        } else {
-            acc = acc ? (acc + '\\' + parts[i]) : parts[i];
-        }
-        const isLast = i === parts.length - 1;
-        html += '<span class="text-slate-300">/</span>';
-        if (isLast) {
-            html += '<span class="text-slate-700 font-medium">' + escHtml(parts[i]) + '</span>';
-        } else {
-            // 路径中的反斜杠需要正确传递
-            html += '<button type="button" class="hover:text-blue-600 transition-colors" data-folder-path="' + escHtml(acc) +
-                '" onclick="' + loadFn + '(this.dataset.folderPath)">' + escHtml(parts[i]) + '</button>';
-        }
-    }
-    el.innerHTML = html;
-}
-
-function renderFolderPickerList(dirs) {
-    const listEl = document.getElementById('folder-picker-list');
-    if (dirs.length === 0) { listEl.innerHTML = '<div class="text-center text-xs text-slate-400 py-8">此目录为空</div>'; return; }
-    let html = '';
-    for (const d of dirs) {
-        const hasChildren = d.hasChildren ? 'has-children' : '';
-        html += '<div class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-50 cursor-pointer group" onclick="loadFolderPicker(' + JSON.stringify(d.path).replace(/"/g, '&quot;') + ')">' +
-            '<svg class="iconify-icon text-amber-400 text-lg"><use href="#folder"/></svg>' +
-            '<span class="text-sm text-slate-700 flex-1">' + escHtml(d.name) + '</span>' +
-            (d.hasChildren ? '<svg class="iconify-icon text-slate-300 text-xs"><use href="#chevron_right"/></svg>' : '') +
-            '</div>';
-    }
-    listEl.innerHTML = html;
-}
-
-async function createFolderInPicker() {
-    const parent = _folderMultiPickerCallback ? _folderMultiPickerPath : _folderPickerPath;
-    if (!parent || parent === 'roots') {
-        showToast('请先打开要创建文件夹的位置。');
-        return;
-    }
-    const name = prompt('请输入新文件夹名称');
-    if (!name || !name.trim()) return;
-    try {
-        const res = await fetch('/api/browse-folders/create', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ parent, name: name.trim() })
-        });
-        const data = await res.json();
-        if (data.success) {
-            if (_folderMultiPickerCallback) {
-                await loadFolderMultiPicker(_folderMultiPickerPath);
-            } else {
-                await loadFolderPicker(_folderPickerPath);
-            }
-            showToast('文件夹已创建');
-        } else {
-            showToast(data.error || '创建失败');
-        }
-    } catch (err) {
-        showToast('创建失败: ' + err.message);
+        publicButton.disabled = _savingPublicDirectories;
     }
 }
 
@@ -1811,8 +1575,8 @@ async function saveUser() {
 async function approveUser(id) {
     const user = _users.find(u => u.id === id);
     if (!user) return;
-    const paths = await openFolderMultiPicker('选择该用户的共享目录（可多选）');
-    if (!paths || paths.length === 0) return;
+    const paths = await chooseFoldersWithWindows();
+    if (paths.length === 0) return;
     try {
         const res = await fetch('/api/users/' + encodeURIComponent(id) + '/approve', {
             method: 'POST',
@@ -2075,42 +1839,6 @@ function escHtml(s) {
 
 initServer();
 </script>
-
-<!-- 目录选择弹窗 -->
-<div class="fixed inset-0 z-[70] flex items-center justify-center hidden p-4" id="modal-folder-picker" style="background: rgba(0,0,0,0.5);" onclick="if(event.target===this)closeFolderPicker()">
-<div class="bg-white rounded-xl shadow-2xl w-full max-w-lg flex flex-col" style="max-height: min(720px, calc(100dvh - 2rem));" onclick="event.stopPropagation()">
-<div class="flex items-center justify-between px-4 py-3 border-b border-slate-100 shrink-0">
-<h4 class="font-bold text-sm text-slate-800 flex items-center gap-1.5">
-<svg class="iconify-icon text-blue-600"><use href="#folder_outline"/></svg>
-<span id="folder-picker-title">选择共享目录</span>
-</h4>
-<button type="button" class="text-slate-400 hover:text-slate-600 transition-colors p-1" onclick="closeFolderPicker()" title="关闭">
-<svg class="iconify-icon text-xl"><use href="#close"/></svg>
-</button>
-</div>
-<div class="px-4 py-2 border-b border-slate-100 bg-slate-50 shrink-0">
-<div class="flex items-center gap-1 text-[11px] text-slate-500 flex-wrap" id="folder-picker-breadcrumb"></div>
-</div>
-<div class="flex-1 overflow-y-auto p-2 min-h-16" id="folder-picker-list">
-<div class="text-center text-xs text-slate-400 py-8">加载中...</div>
-</div>
-<div id="folder-picker-selection" class="hidden px-4 py-2 space-y-2 border-t border-slate-100 bg-slate-50 shrink-0 text-xs">
-<div class="flex flex-wrap items-center gap-2">
-<span id="folder-picker-selected-count" class="font-semibold text-slate-700 mr-auto" aria-live="polite">已选 0 个文件夹</span>
-<button type="button" id="folder-picker-current-btn" class="text-blue-700 px-2 py-1 rounded hover:bg-blue-50 disabled:hidden" onclick="toggleMultiPickerDir(_folderMultiPickerPath, !_folderMultiPickerSelected.has(folderSelectionKey(_folderMultiPickerPath)))">选择当前文件夹</button>
-<button type="button" id="folder-picker-native-btn" class="hidden px-2.5 py-1.5 rounded-md bg-white border border-blue-200 text-blue-700 font-medium hover:bg-blue-50 disabled:opacity-50" onclick="chooseFoldersWithWindows()">用 Windows 选择</button>
-</div>
-<div id="folder-picker-selected-list" class="hidden max-h-16 overflow-y-auto space-y-1 text-slate-600"></div>
-</div>
-<div class="px-4 py-3 border-t border-slate-100 shrink-0 flex flex-wrap items-center gap-2">
-<button type="button" class="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg text-[11px] font-medium transition-all" onclick="createFolderInPicker()">新建文件夹</button>
-<div class="flex-1"></div>
-<button type="button" class="px-4 py-1.5 border border-slate-200 text-slate-600 hover:bg-white rounded-lg text-xs font-medium transition-all" onclick="closeFolderPicker()">取消</button>
-<button type="button" id="folder-picker-select-btn" class="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium transition-all" onclick="confirmFolderPicker()">选择此目录</button>
-<button type="button" id="folder-picker-confirm-btn" class="hidden px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium transition-all disabled:opacity-50" onclick="confirmFolderMultiPicker()">确认选择</button>
-</div>
-</div>
-</div>
 
 </body>
 </html>

@@ -242,22 +242,23 @@ public static class ModernFolderDialog
         }
     }
 
-    public static List<string>? ShowMultiSelect(string title, string? initialPath = null, IntPtr owner = default)
+    public static List<string>? ShowFolders(string title, string? initialPath, IntPtr owner, bool multiple)
     {
         var dialogType = Type.GetTypeFromCLSID(CLSID_FileOpenDialog, throwOnError: true)!;
         var dialog = (IFileOpenDialog)Activator.CreateInstance(dialogType)!;
         try
         {
             dialog.GetOptions(out var options);
-            dialog.SetOptions(options | FOS_PICKFOLDERS | FOS_FORCEFILESYSTEM | FOS_PATHMUSTEXIST
-                | FOS_ALLOWMULTISELECT | FOS_NOCHANGEDIR);
+            options |= FOS_PICKFOLDERS | FOS_FORCEFILESYSTEM | FOS_PATHMUSTEXIST | FOS_NOCHANGEDIR;
+            if (multiple) options |= FOS_ALLOWMULTISELECT;
+            dialog.SetOptions(options);
             dialog.SetTitle(title);
             dialog.SetOkButtonLabel("选择文件夹");
 
             if (Directory.Exists(initialPath) && SHCreateItemFromParsingName(initialPath!, IntPtr.Zero,
                 typeof(IShellItem).GUID, out var folderItem) == 0 && folderItem != null)
             {
-                try { dialog.SetFolder(folderItem); }
+                try { dialog.SetDefaultFolder(folderItem); }
                 finally { Marshal.ReleaseComObject(folderItem); }
             }
 
