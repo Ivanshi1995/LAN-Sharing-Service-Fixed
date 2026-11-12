@@ -216,7 +216,7 @@
             <div class="flex items-center justify-between mt-2">
                 <span class="text-xs text-slate-400" id="pub-dl-size">0 / ...</span>
                 <div class="flex items-center gap-2">
-                    <button class="text-xs text-blue-600 hover:text-blue-800 underline" id="pub-btn-dl-resume" onclick="pubResumeDownload()" style="display:none">继续</button>
+                    <button class="text-xs text-blue-600 hover:text-blue-800 underline" id="pub-btn-dl-retry" onclick="pubRetryDownload()" style="display:none">重新下载</button>
                     <button class="text-xs text-red-500 hover:text-red-700 underline" id="pub-btn-dl-cancel" onclick="pubCancelDownload()">取消</button>
                 </div>
             </div>
@@ -732,32 +732,37 @@ function renderFileList(files) {
                     arrow + ' ' + (catIcons[cat] || '📎') + ' ' + getCategoryName(cat) + '</div>';
             }
         }
-        const icon = f.isDirectory
-            ? '<svg class="iconify-icon text-amber-500 text-xl shrink-0"><use href="#folder"/></svg>'
-            : fileIcon(f.name);
         const pathAttr = ' data-path="' + escAttr(encodePath(f.path)) + '"';
-        const isMedia = !f.isDirectory && isMediaFile(f.name);
-        const isDoc = !f.isDirectory && !isMedia && isDocFile(f.name);
-        const isUnplayableVid = !f.isDirectory && isUnplayableVideo(f.name);
-        const canPreview = isMedia || isDoc;
         const displayName = truncateFileName(f.name, 28);
-        const nameHtml = f.isDirectory
-            ? '<a href="javascript:void(0)" ' + pathAttr + ' onclick="navigateTo(this.dataset.path)" class="text-blue-600 hover:text-blue-700 font-medium truncate" title="' + escAttr(f.name) + '">' + displayName + '</a>'
-            : (canPreview
-                ? '<a href="javascript:void(0)"' + pathAttr + ' onclick="' + (isMedia ? 'pubOpenMediaPreview' : 'pubOpenDocPreview') + '(this.dataset.path)" class="text-slate-700 hover:text-blue-600 font-medium truncate" title="' + escAttr(f.name) + '">' + displayName + '</a>'
-                : '<span class="text-slate-700 font-medium truncate" title="' + escAttr(f.name) + '">' + displayName + (isUnplayableVid ? ' <span class="text-xs text-amber-500 font-normal">(需下载)</span>' : '') + '</span>');
-        const actionHtml = f.isDirectory
-            ? '<span class="text-xs text-slate-400">目录</span>'
-            : ('<div class="flex items-center gap-1">' +
-                (canPreview ? '<button' + pathAttr + ' onclick="event.stopPropagation();' + (isMedia ? 'pubOpenMediaPreview' : 'pubOpenDocPreview') + '(this.dataset.path)" class="flex items-center gap-1 px-2 py-1.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-lg text-xs font-medium transition-colors" title="预览"><svg class="iconify-icon text-sm"><use href="#eye_outline"/></svg></button>' : '') +
-                '<button' + pathAttr + ' data-name="' + escAttr(f.name) + '" onclick="downloadPublicFile(this.dataset.path, this.dataset.name)" class="flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg text-xs font-medium transition-colors"><svg class="iconify-icon text-sm"><use href="#download"/></svg>下载</button>' +
-                '</div>');
-        const sizeHtml = f.isDirectory ? '' : '<span class="text-xs text-slate-400 shrink-0">' + formatFileSize(f.size) + '</span>';
         const rowStyle = (_sortMode === 'category' && currentCatCollapsed) ? ' style="display:none"' : '';
         const rowCatAttr = _sortMode === 'category' ? ' data-cat="' + lastCategory + '"' : '';
+        const rowClass = 'file-row flex items-center gap-3 px-4 py-3 transition-colors';
+        html += catHeader;
 
-        html += catHeader + '<div class="file-row flex items-center gap-3 px-4 py-3 transition-colors"' + rowCatAttr + rowStyle + '>' +
-            '<div class="shrink-0">' + icon + '</div>' +
+        if (f.isDirectory) {
+            html += '<a href="javascript:void(0)"' + pathAttr + ' onclick="navigateTo(this.dataset.path)"' +
+                ' class="' + rowClass + ' cursor-pointer text-blue-600 hover:text-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600"' +
+                ' title="' + escAttr(f.name) + '"' + rowCatAttr + rowStyle + '>' +
+                '<svg class="iconify-icon text-amber-500 text-xl shrink-0" aria-hidden="true"><use href="#folder"/></svg>' +
+                '<span class="flex-1 min-w-0 truncate font-medium">' + displayName + '</span>' +
+                '<span class="text-xs text-slate-400 shrink-0">目录</span></a>';
+            return;
+        }
+
+        const isMedia = isMediaFile(f.name);
+        const canPreview = isMedia || isDocFile(f.name);
+        const previewAction = (isMedia ? 'pubOpenMediaPreview' : 'pubOpenDocPreview') + '(this.dataset.path)';
+        const nameHtml = canPreview
+            ? '<a href="javascript:void(0)"' + pathAttr + ' onclick="' + previewAction + '" class="text-slate-700 hover:text-blue-600 font-medium truncate" title="' + escAttr(f.name) + '">' + displayName + '</a>'
+            : '<span class="text-slate-700 font-medium truncate" title="' + escAttr(f.name) + '">' + displayName + (isUnplayableVideo(f.name) ? ' <span class="text-xs text-amber-500 font-normal">(需下载)</span>' : '') + '</span>';
+        const actionHtml = '<div class="flex items-center gap-1">' +
+            (canPreview ? '<button' + pathAttr + ' onclick="event.stopPropagation();' + previewAction + '" class="flex items-center gap-1 px-2 py-1.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 rounded-lg text-xs font-medium transition-colors" title="预览"><svg class="iconify-icon text-sm"><use href="#eye_outline"/></svg></button>' : '') +
+            '<button' + pathAttr + ' data-name="' + escAttr(f.name) + '" onclick="downloadPublicFile(this.dataset.path, this.dataset.name)" class="flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg text-xs font-medium transition-colors"><svg class="iconify-icon text-sm"><use href="#download"/></svg>下载</button>' +
+            '</div>';
+        const sizeHtml = '<span class="text-xs text-slate-400 shrink-0">' + formatFileSize(f.size) + '</span>';
+
+        html += '<div class="' + rowClass + '"' + rowCatAttr + rowStyle + '>' +
+            '<div class="shrink-0">' + fileIcon(f.name) + '</div>' +
             '<div class="flex-1 min-w-0">' + nameHtml + '</div>' +
             '<div class="shrink-0">' + sizeHtml + '</div>' +
             '<div class="shrink-0">' + actionHtml + '</div>' +
@@ -866,25 +871,11 @@ function escAttr(s) {
     return (s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
-// ========== 公共页下载管理（支持断点续传） ==========
-const PUB_DL_STATE_KEY = 'lanfs_pub_dl_states';
+// ========== 公共页下载管理 ==========
 let _pubDlAbortController = null;
 let _pubDlCurrentPath = '';
-let _pubDlChunks = [];
-let _pubDlReceivedBytes = 0;
-let _pubDlTotalBytes = 0;
-let _pubDlLastBytes = 0;
-let _pubDlLastTime = 0;
-
-function getPubDlStates() {
-    try { return JSON.parse(localStorage.getItem(PUB_DL_STATE_KEY) || '{}'); } catch (_) { return {}; }
-}
-
-function savePubDlState(path, state) {
-    const states = getPubDlStates();
-    if (state === null) { delete states[path]; } else { states[path] = state; }
-    localStorage.setItem(PUB_DL_STATE_KEY, JSON.stringify(states));
-}
+let _pubDlCurrentFileName = '';
+let _pubDlHideTimer;
 
 function showPubDownloadPanel(fileName) {
     document.getElementById('download-panel').classList.remove('hidden');
@@ -892,7 +883,7 @@ function showPubDownloadPanel(fileName) {
     document.getElementById('pub-dl-percent').innerText = '0%';
     document.getElementById('pub-dl-bar').style.width = '0%';
     document.getElementById('pub-dl-size').innerText = '0 / ...';
-    document.getElementById('pub-btn-dl-resume').style.display = 'none';
+    document.getElementById('pub-btn-dl-retry').style.display = 'none';
     document.getElementById('pub-btn-dl-cancel').style.display = '';
 }
 
@@ -907,28 +898,15 @@ function updatePubDlProgress(received, total) {
         document.getElementById('pub-dl-bar').style.width = pct + '%';
     }
     document.getElementById('pub-dl-size').innerText = formatFileSize(received) + ' / ' + (total > 0 ? formatFileSize(total) : '...');
-    const now = Date.now();
-    const elapsed = (now - _pubDlLastTime) / 1000;
-    if (elapsed >= 0.5 && _pubDlLastTime > 0) {
-        const speed = (received - _pubDlLastBytes) / elapsed;
-        // show speed in size text
-        const speedText = speed < 1024 ? (speed.toFixed(1) + ' B/s') :
-            speed < 1024 * 1024 ? ((speed / 1024).toFixed(1) + ' KB/s') :
-            ((speed / (1024 * 1024)).toFixed(1) + ' MB/s');
-        _pubDlLastBytes = received;
-        _pubDlLastTime = now;
-    }
 }
 
 function pubCancelDownload() {
     if (_pubDlAbortController) { logAction('取消下载', _pubDlCurrentPath); _pubDlAbortController.abort(); }
 }
 
-function pubResumeDownload() {
+function pubRetryDownload() {
     if (_pubDlCurrentPath) {
-        logAction('继续下载', _pubDlCurrentPath);
-        if (_pubDlAbortController) _pubDlAbortController.abort();
-        downloadPublicFile(_pubDlCurrentPath, _pubDlCurrentPath.split('/').pop());
+        return downloadPublicFile(_pubDlCurrentPath, _pubDlCurrentFileName);
     }
 }
 
@@ -941,78 +919,39 @@ async function downloadPublicFile(path, fileName) {
         pubCancelDownload();
     }
 
-    _pubDlAbortController = new AbortController();
+    const controller = new AbortController();
+    _pubDlAbortController = controller;
     _pubDlCurrentPath = path;
-    _pubDlChunks = [];
-    _pubDlReceivedBytes = 0;
-    _pubDlTotalBytes = 0;
-    _pubDlLastBytes = 0;
-    _pubDlLastTime = Date.now();
+    _pubDlCurrentFileName = fileName;
+    clearTimeout(_pubDlHideTimer);
 
     showPubDownloadPanel(fileName);
 
-    // 检查断点续传状态
-    const savedStates = getPubDlStates();
-    const savedState = savedStates[path];
-    let resumeFrom = 0;
-    if (savedState && savedState.received > 0 && savedState.total > 0 && savedState.received < savedState.total) {
-        resumeFrom = savedState.received;
-    }
-
     try {
-        // 获取文件大小
-        let total = 0;
-        try {
-            const headResp = await fetch(url, { method: 'HEAD', signal: _pubDlAbortController.signal });
-            total = parseInt(headResp.headers.get('Content-Length') || '0');
-        } catch (_) {}
+        // 浏览器没有保存上次收到的字节，每次请求都从头下载。
+        const resp = await fetch(url, { signal: controller.signal });
+        if (controller !== _pubDlAbortController) return;
+        if (resp.status !== 200) throw new Error('下载需要完整响应');
 
-        _pubDlTotalBytes = total;
-
-        const fetchHeaders = {};
-        if (resumeFrom > 0 && total > 0) {
-            fetchHeaders['Range'] = 'bytes=' + resumeFrom + '-';
-        }
-
-        const resp = await fetch(url, {
-            headers: fetchHeaders,
-            signal: _pubDlAbortController.signal
-        });
-
-        if (!resp.ok && resp.status !== 206) {
-            throw new Error('下载失败: HTTP ' + resp.status);
-        }
-
-        if (resp.status === 206) {
-            const cr = resp.headers.get('Content-Range');
-            if (cr) { const m = cr.match(/bytes \d+-\d+\/(\d+)/); if (m) total = parseInt(m[1]); _pubDlTotalBytes = total; }
-        }
-        if (total === 0 && resp.headers.get('Content-Length')) {
-            total = parseInt(resp.headers.get('Content-Length') || '0');
-            _pubDlTotalBytes = total;
-        }
-
-        _pubDlReceivedBytes = resumeFrom;
-        updatePubDlProgress(_pubDlReceivedBytes, total);
-
+        const contentLength = resp.headers.get('Content-Length');
+        const total = Number(contentLength);
+        const chunks = [];
+        let received = 0;
         const reader = resp.body.getReader();
         while (true) {
             const { done, value } = await reader.read();
+            if (controller !== _pubDlAbortController) return;
             if (done) break;
-            _pubDlChunks.push(value);
-            _pubDlReceivedBytes += value.length;
-            updatePubDlProgress(_pubDlReceivedBytes, total || _pubDlReceivedBytes);
-
-            savePubDlState(path, {
-                received: _pubDlReceivedBytes,
-                total: total || _pubDlReceivedBytes,
-                fileName: fileName,
-                time: Date.now()
-            });
+            chunks.push(value);
+            received += value.length;
+            updatePubDlProgress(received, total);
+        }
+        if (contentLength !== null && !resp.headers.get('Content-Encoding') && received !== total) {
+            throw new Error('下载字节数与文件大小不一致');
         }
 
         const mimeType = resp.headers.get('Content-Type') || 'application/octet-stream';
-        const blob = new Blob(_pubDlChunks, { type: mimeType });
+        const blob = new Blob(chunks, { type: mimeType });
         const blobUrl = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = blobUrl;
@@ -1022,45 +961,18 @@ async function downloadPublicFile(path, fileName) {
         document.body.removeChild(a);
         setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
 
-        savePubDlState(path, null);
+        document.getElementById('pub-btn-dl-cancel').style.display = 'none';
         document.getElementById('pub-dl-size').innerText = '✅ 下载完成';
         logAction('下载完成', fileName);
-        setTimeout(hidePubDownloadPanel, 2000);
+        _pubDlHideTimer = setTimeout(hidePubDownloadPanel, 2000);
 
-    } catch (err) {
-        if (err.name === 'AbortError') {
-            if (_pubDlReceivedBytes > 0) {
-                savePubDlState(path, {
-                    received: _pubDlReceivedBytes,
-                    total: _pubDlTotalBytes || _pubDlReceivedBytes,
-                    fileName: fileName,
-                    time: Date.now()
-                });
-                document.getElementById('pub-dl-size').innerText = '⏸ 已暂停 (' + formatFileSize(_pubDlReceivedBytes) + ')';
-                document.getElementById('pub-btn-dl-resume').style.display = '';
-                document.getElementById('pub-btn-dl-cancel').style.display = 'none';
-            } else {
-                savePubDlState(path, null);
-                hidePubDownloadPanel();
-            }
-        } else {
-            if (_pubDlReceivedBytes > 0) {
-                savePubDlState(path, {
-                    received: _pubDlReceivedBytes,
-                    total: _pubDlTotalBytes || _pubDlReceivedBytes,
-                    fileName: fileName,
-                    time: Date.now()
-                });
-                document.getElementById('pub-dl-size').innerText = '⚠ 已中断 (' + formatFileSize(_pubDlReceivedBytes) + ')';
-                document.getElementById('pub-btn-dl-resume').style.display = '';
-                document.getElementById('pub-btn-dl-cancel').style.display = 'none';
-            } else {
-                savePubDlState(path, null);
-                hidePubDownloadPanel();
-            }
-        }
+    } catch {
+        if (controller !== _pubDlAbortController) return;
+        document.getElementById('pub-dl-size').innerText = '下载未完成。请点击“重新下载”。';
+        document.getElementById('pub-btn-dl-retry').style.display = '';
+        document.getElementById('pub-btn-dl-cancel').style.display = 'none';
     } finally {
-        _pubDlAbortController = null;
+        if (controller === _pubDlAbortController) _pubDlAbortController = null;
     }
 }
 
