@@ -360,6 +360,8 @@ internal static class EntryPoint
                 var pageFolder = Directory.CreateDirectory(Path.Combine(folder, "pages"));
                 await File.WriteAllTextAsync(Path.Combine(folder, entry), "<!doctype html><script src=app.mjs></script>");
                 await File.WriteAllTextAsync(Path.Combine(pageFolder.FullName, "app.mjs"), "export const value = 1;");
+                var subfolder = Directory.CreateDirectory(Path.Combine(pageFolder.FullName, "sub"));
+                await File.WriteAllTextAsync(Path.Combine(subfolder.FullName, "next.HTM"), "<!doctype html><h1>下一页</h1>");
                 await File.WriteAllTextAsync(Path.Combine(folder, "outside.css"), "body {}");
             }
 
@@ -372,6 +374,36 @@ internal static class EntryPoint
             client.DefaultRequestHeaders.Add("Cookie", login.Headers.GetValues("Set-Cookie").Single().Split(';')[0]);
 
             var publicIssue = "/api/public/files/preview/html?path=" + Uri.EscapeDataString(firstPublicPath + "/" + entry);
+            var storageScopes = new HashSet<string>();
+            foreach (var (caller, issue) in new[] { (client, privateIssue), (http, publicIssue) })
+            {
+                using var tab = await caller.GetAsync(issue + "&tab=true");
+                Check(tab.IsSuccessStatusCode && tab.Content.Headers.ContentType?.MediaType == "text/html");
+                var markup = await tab.Content.ReadAsStringAsync();
+                var source = System.Text.RegularExpressions.Regex.Match(markup, "src=\"(/api/html-preview/[^\"]+)\"").Groups[1].Value;
+                Check(source.EndsWith("/" + Uri.EscapeDataString("入口.html")));
+                Check(markup.Contains("sandbox=\"allow-scripts allow-forms\"") && !markup.Contains("allow-same-origin"));
+                Check(markup.Contains("csp=\"base-uri 'none'\""));
+                var storageScope = System.Text.RegularExpressions.Regex.Match(markup, "data-preview-scope=\"([0-9A-F]{64})\"").Groups[1].Value;
+                Check(storageScope.Length == 64 && storageScopes.Add(storageScope));
+                var tabPolicy = tab.Headers.GetValues("Content-Security-Policy").Single();
+                Check(tabPolicy.Contains("frame-src " + http.BaseAddress!.GetLeftPart(UriPartial.Authority) + source[..(source.LastIndexOf('/') + 1)]));
+                Check(tabPolicy.Contains("frame-ancestors 'none'"));
+
+                using var documentRequest = new HttpRequestMessage(HttpMethod.Get, source);
+                documentRequest.Headers.Add("Sec-Fetch-Dest", "iframe");
+                using var document = await http.SendAsync(documentRequest);
+                Check((await document.Content.ReadAsStringAsync()).Contains("/CDN/html-preview-storage.js"));
+                Check(!document.Headers.GetValues("Content-Security-Policy").Single().Contains("allow-same-origin"));
+
+                using var sourceRequest = new HttpRequestMessage(HttpMethod.Get, source);
+                sourceRequest.Headers.Add("Origin", "null");
+                sourceRequest.Headers.Accept.ParseAdd("application/vnd.lanfileshare.preview+html");
+                using var sourceResponse = await http.SendAsync(sourceRequest);
+                Check(sourceResponse.Headers.GetValues("Access-Control-Allow-Origin").Single() == "null");
+                Check(sourceResponse.Content.Headers.ContentType?.MediaType == "application/vnd.lanfileshare.preview+html");
+                Check((await sourceResponse.Content.ReadAsStringAsync()).Contains("<script src=app.mjs>"));
+            }
             var privatePage = (await client.GetFromJsonAsync<JsonElement>(privateIssue)).GetProperty("url").GetString()!;
             var publicPage = (await http.GetFromJsonAsync<JsonElement>(publicIssue)).GetProperty("url").GetString()!;
             foreach (var page in new[] { privatePage, publicPage })
@@ -382,24 +414,38 @@ internal static class EntryPoint
                 using var frame = await http.SendAsync(frameRequest);
                 Check(frame.IsSuccessStatusCode);
                 var policy = frame.Headers.GetValues("Content-Security-Policy").Single();
-                Check(policy.StartsWith("sandbox allow-scripts;") && policy.Contains(assets));
+                Check(policy.StartsWith("sandbox allow-scripts allow-forms;") && policy.Contains(assets));
                 Check(!policy.Contains("allow-same-origin"));
                 var directives = policy.Split(';', StringSplitOptions.TrimEntries);
                 var scripts = directives.Single(d => d.StartsWith("script-src ")).Split(' ');
                 var styles = directives.Single(d => d.StartsWith("style-src ")).Split(' ');
                 var fonts = directives.Single(d => d.StartsWith("font-src ")).Split(' ');
                 var connections = directives.Single(d => d.StartsWith("connect-src ")).Split(' ');
+                var formTargets = directives.Single(d => d.StartsWith("form-action ")).Split(' ');
                 Check(scripts.Contains("https://cdn.jsdelivr.net") && scripts.Contains("https://cdnjs.cloudflare.com/ajax/libs/"));
                 Check(styles.Contains("https://cdn.jsdelivr.net") && styles.Contains("https://fonts.googleapis.com"));
                 Check(fonts.Contains("https://fonts.gstatic.com"));
                 Check(!scripts.Contains("https:") && !styles.Contains("https:"));
                 Check(connections.SequenceEqual(new[] { "connect-src", http.BaseAddress!.GetLeftPart(UriPartial.Authority) + assets }));
+                Check(formTargets.SequenceEqual(new[] { "form-action", http.BaseAddress!.GetLeftPart(UriPartial.Authority) + assets }));
                 using var lanFrameRequest = new HttpRequestMessage(HttpMethod.Get, page);
                 lanFrameRequest.Headers.Referrer = http.BaseAddress;
                 using var lanFrame = await http.SendAsync(lanFrameRequest);
                 Check(lanFrame.Headers.GetValues("Content-Security-Policy").Single() == policy);
                 using var direct = await http.GetAsync(page);
-                Check(direct.Headers.GetValues("Content-Security-Policy").Single().StartsWith("sandbox;"));
+                var directPolicy = direct.Headers.GetValues("Content-Security-Policy").Single();
+                Check(directPolicy.StartsWith("sandbox;") && directPolicy.Contains("form-action 'none'"));
+
+                using var nextRequest = new HttpRequestMessage(HttpMethod.Get, assets + "sub/next.HTM?step=2");
+                nextRequest.Headers.Add("Sec-Required-CSP", "base-uri 'none'");
+                using var nextPage = await http.SendAsync(nextRequest);
+                Check(nextPage.IsSuccessStatusCode && nextPage.Content.Headers.ContentType?.MediaType == "text/html");
+                Check(nextPage.Headers.GetValues("Content-Security-Policy").Single() == policy);
+                Check((await nextPage.Content.ReadAsStringAsync()).Contains("下一页"));
+                using var directNext = await http.GetAsync(assets + "sub/next.HTM");
+                Check(directNext.Headers.GetValues("Content-Security-Policy").Single().StartsWith("sandbox;"));
+                using var post = await http.PostAsync(assets + "sub/next.HTM", null);
+                Check(post.StatusCode == HttpStatusCode.MethodNotAllowed);
 
                 using var moduleRequest = new HttpRequestMessage(HttpMethod.Get, assets + "app.mjs");
                 moduleRequest.Headers.Add("Origin", "null");

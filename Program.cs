@@ -3295,27 +3295,33 @@ public class Program
             return (share?.FullPath, share?.Root.Directory);
         }
 
-        IResult StartPreview(HttpContext ctx, string path, bool isPublic)
+        IResult StartPreview(HttpContext ctx, string path, bool isPublic, bool tab)
         {
-            if (!_fileShareEnabled) return Results.StatusCode(503);
+            IResult Unavailable(int status, string message) => tab
+                ? Results.Content(message, "text/plain; charset=utf-8", statusCode: status)
+                : Results.StatusCode(status);
+
+            if (!_fileShareEnabled) return Unavailable(503, "文件共享服务已暂停。请在服务恢复后重试。");
             var ip = ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-            if (service.IsIPBlacklisted(ip)) return Results.StatusCode(403);
+            if (service.IsIPBlacklisted(ip)) return Unavailable(403, "当前设备无法访问共享。请联系管理员。");
             var session = isPublic ? null : authService.GetSession(ctx);
-            if (!isPublic && session == null) return Results.Unauthorized();
-            if (isPublic && !service.Settings.PublicShareEnabled) return Results.StatusCode(403);
+            if (!isPublic && session == null) return Unavailable(401, "登录已失效。请返回共享页重新登录。");
+            if (isPublic && !service.Settings.PublicShareEnabled) return Unavailable(403, "公共共享已关闭。请联系管理员。");
 
             var (fullPath, root) = ResolveEntry(path, session);
             if (fullPath == null || root == null || GetMimeType(fullPath) != "text/html"
                 || !HtmlPreviewService.IsRegularFile(root, fullPath))
-                return Results.NotFound();
-            if (new FileInfo(fullPath).Length > HtmlPreviewService.MaximumPageBytes) return Results.StatusCode(413);
+                return Unavailable(404, "网页无法访问。请返回共享页检查文件是否存在。");
+            if (new FileInfo(fullPath).Length > HtmlPreviewService.MaximumPageBytes)
+                return Unavailable(413, "网页超过 50 MiB。请返回共享页下载文件。");
 
-            var grant = new HtmlPreviewGrant(path, Path.GetFullPath(fullPath), session?.Token, ip);
-            return Results.Json(new { url = HtmlPreviewService.CreateUrl(grant) });
+            var grant = new HtmlPreviewGrant(path, Path.GetFullPath(fullPath), session?.Token, ip, tab);
+            var url = HtmlPreviewService.CreateUrl(grant);
+            return tab ? HtmlPreviewService.OpenTab(ctx.Request, url, fullPath, session?.UserId) : Results.Json(new { url });
         }
 
-        app.MapGet("/api/files/preview/html", (HttpContext ctx, string path) => StartPreview(ctx, path, isPublic: false));
-        app.MapGet("/api/public/files/preview/html", (HttpContext ctx, string path) => StartPreview(ctx, path, isPublic: true));
+        app.MapGet("/api/files/preview/html", (HttpContext ctx, string path, bool? tab) => StartPreview(ctx, path, isPublic: false, tab == true));
+        app.MapGet("/api/public/files/preview/html", (HttpContext ctx, string path, bool? tab) => StartPreview(ctx, path, isPublic: true, tab == true));
         app.MapGet(HtmlPreviewService.ResourcePrefix + "{ticket}/{**relativePath}", (HttpContext ctx, string ticket, string? relativePath) =>
         {
             if (!_fileShareEnabled) return Results.StatusCode(503);
@@ -3343,12 +3349,21 @@ public class Program
             if (mimeType == "text/html")
             {
                 if (new FileInfo(file).Length > HtmlPreviewService.MaximumPageBytes) return Results.StatusCode(413);
+                if (grant.StorageEnabled && ctx.Request.Headers.Origin == "null"
+                    && ctx.Request.Headers.Accept == HtmlPreviewService.SourceMediaType)
+                {
+                    SetPreviewHeaders(ctx.Response, file);
+                    ctx.Response.Headers["Access-Control-Allow-Origin"] = "null";
+                    return Results.File(file, HtmlPreviewService.SourceMediaType);
+                }
                 var origin = HtmlPreviewService.GetOrigin(ctx.Request);
                 // CSP path sources do not support IPv6 literals. Keep those previews static.
                 if (origin.HostNameType != UriHostNameType.IPv6 && HtmlPreviewService.IsFrameRequest(ctx.Request, origin))
                 {
-                    var assets = origin.GetLeftPart(UriPartial.Authority) + HtmlPreviewService.ResourcePrefix + ticket + "/";
-                    ctx.Response.Headers["Content-Security-Policy"] = HtmlPreviewService.GetInteractivePolicy(assets);
+                    var authority = origin.GetLeftPart(UriPartial.Authority);
+                    var assets = authority + HtmlPreviewService.ResourcePrefix + ticket + "/";
+                    ctx.Response.Headers["Content-Security-Policy"] = HtmlPreviewService.GetInteractivePolicy(assets, grant.StorageEnabled ? authority : null);
+                    if (grant.StorageEnabled) return HtmlPreviewService.LoadStorageDocument();
                 }
                 else
                 {
@@ -3357,7 +3372,7 @@ public class Program
             }
             else
             {
-                ctx.Response.Headers["Content-Security-Policy"] = "sandbox; default-src 'none'; frame-ancestors 'none'";
+                ctx.Response.Headers["Content-Security-Policy"] = $"sandbox; default-src 'none'; {HtmlPreviewService.FrameRequiredPolicy}; frame-ancestors 'none'";
                 if (ctx.Request.Headers.Origin == "null")
                     ctx.Response.Headers["Access-Control-Allow-Origin"] = "null";
             }
@@ -3373,7 +3388,7 @@ public class Program
 
         // Apply the same isolation when someone opens a preview URL directly.
         response.Headers["Content-Security-Policy"] = "sandbox; default-src 'none'; style-src 'unsafe-inline'; " +
-            "img-src data:; font-src data:; media-src data:; base-uri 'none'; form-action 'none'; frame-ancestors 'self'";
+            $"img-src data:; font-src data:; media-src data:; {HtmlPreviewService.FrameRequiredPolicy}; form-action 'none'; frame-ancestors 'self'";
         response.Headers["X-Content-Type-Options"] = "nosniff";
         response.Headers["Referrer-Policy"] = "no-referrer";
         response.Headers["Cache-Control"] = "no-store";
