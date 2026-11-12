@@ -309,6 +309,9 @@ public class Program
 
         MapHtmlPreviewEndpoints(app, service, authService, userService);
 
+        app.MapGet("/favicon.ico", () =>
+            Results.File(Path.Combine(AppPaths.ResourceDirectory, "icon.ico"), "image/x-icon"));
+
         // HTML pages – 登录页（所有人可访问），管理页仅限本机 WebView2 携带有效 token 访问
         app.MapGet("/", async (HttpContext ctx) =>
         {
@@ -427,16 +430,22 @@ public class Program
             var content = root.GetProperty("content").GetString() ?? "";
             var fileName = root.TryGetProperty("fileName", out var fn) ? fn.GetString() : null;
             var fileUrl = root.TryGetProperty("fileUrl", out var fu) ? fu.GetString() : null;
-            
+            var fileSize = root.TryGetProperty("fileSize", out var fs) && fs.ValueKind == JsonValueKind.Number &&
+                fs.TryGetInt64(out var size) && size >= 0 ? size : (long?)null;
+            var time = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            var id = _chatStorage!.SaveMessage(session.Username, to, type, content, fileName, fileUrl, fileSize, time);
+
             var msg = new Dictionary<string, object?>
             {
+                ["id"] = id,
                 ["from"] = session.Username,
                 ["type"] = type,
                 ["content"] = content,
-                ["time"] = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+                ["time"] = time
             };
             if (fileName != null) msg["fileName"] = fileName;
             if (fileUrl != null) msg["fileUrl"] = fileUrl;
+            if (fileSize != null) msg["fileSize"] = fileSize;
             
             // 广播给目标用户的所有 SSE 连接
             if (_chatClients.TryGetValue(to, out var targetClients))
@@ -450,18 +459,7 @@ public class Program
                 }
             }
 
-            // 持久化消息到存储
-            _chatStorage?.SaveMessage(
-                sender: session.Username,
-                recipient: to,
-                type: type,
-                content: content,
-                fileName: fileName,
-                fileUrl: fileUrl,
-                time: (long)msg["time"]!
-            );
-
-            return Results.Json(new { ok = true });
+            return Results.Json(new { ok = true, id, time });
         });
 
         // API: 聊天消息 SSE 流（客户端订阅）
@@ -605,7 +603,7 @@ public class Program
         // ========== 聊天历史记录 API ==========
 
         // API: 查询两个用户之间的历史消息
-        app.MapGet("/api/chat/history", (HttpContext ctx, string with, int limit, long? before) =>
+        app.MapGet("/api/chat/history", (HttpContext ctx, string with, int limit, long? before, long? beforeId) =>
         {
             var session = authService.GetSession(ctx);
             if (session == null) return Results.Json(new { error = "Unauthorized" }, statusCode: 401);
@@ -617,9 +615,10 @@ public class Program
 
             try
             {
-                var messages = _chatStorage?.QueryMessages(session.Username, with, limit, beforeVal) ?? new();
+                var messages = _chatStorage?.QueryMessages(session.Username, with, limit, beforeVal, beforeId ?? 0) ?? new();
                 var result = messages.Select(m => new
                 {
+                    id = m.Id,
                     type = m.MsgType,
                     content = m.Content,
                     from = m.Sender,
@@ -660,15 +659,12 @@ public class Program
                 // 只允许搜索自己相关的消息
                 var messages = _chatStorage?.SearchMessages(
                     keyword: keyword,
-                    sender: sender ?? session.Username,
+                    sender: sender,
                     recipient: recipient,
                     startTime: start,
                     endTime: end,
-                    limit: limit) ?? new();
-
-                // 只返回当前用户参与的消息
-                messages = messages.Where(m =>
-                    m.Sender == session.Username || m.Recipient == session.Username).ToList();
+                    limit: limit,
+                    participant: session.Username) ?? new();
 
                 var result = messages.Select(m => new
                 {

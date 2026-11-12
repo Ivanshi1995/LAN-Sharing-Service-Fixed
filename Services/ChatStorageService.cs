@@ -129,7 +129,7 @@ public class ChatStorageService : IDisposable
             : $"{userB}|{userA}";
     }
 
-    public void SaveMessage(string sender, string recipient, string type, string content,
+    public long SaveMessage(string sender, string recipient, string type, string content,
         string? fileName = null, string? fileUrl = null, long? fileSize = null, long? time = null)
     {
         var record = new ChatMessageRecord
@@ -145,16 +145,17 @@ public class ChatStorageService : IDisposable
             CreatedAt = time ?? DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
         };
 
-        InsertMessageInternal(record);
+        record.Id = InsertMessageInternal(record);
 
         // 更新热缓存
         var key = record.ConversationKey;
         _hotCache.AddOrUpdate(key,
             _ => new List<ChatMessageRecord> { record },
             (_, list) => { lock (list) { list.Add(record); } return list; });
+        return record.Id;
     }
 
-    private void InsertMessageInternal(ChatMessageRecord record)
+    private long InsertMessageInternal(ChatMessageRecord record)
     {
         lock (_dbLock)
         {
@@ -163,7 +164,8 @@ public class ChatStorageService : IDisposable
             using var cmd = db.CreateCommand();
             cmd.CommandText = @"
                 INSERT INTO chat_messages (conversation_key, msg_type, content, sender, recipient, file_name, file_url, file_size, created_at)
-                VALUES (@key, @type, @content, @sender, @recipient, @fname, @furl, @fsize, @time)";
+                VALUES (@key, @type, @content, @sender, @recipient, @fname, @furl, @fsize, @time)
+                RETURNING id";
             cmd.Parameters.AddWithValue("@key", record.ConversationKey);
             cmd.Parameters.AddWithValue("@type", record.MsgType);
             cmd.Parameters.AddWithValue("@content", record.Content ?? "");
@@ -173,11 +175,12 @@ public class ChatStorageService : IDisposable
             cmd.Parameters.AddWithValue("@furl", (object?)record.FileUrl ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@fsize", (object?)record.FileSize ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@time", record.CreatedAt);
-            cmd.ExecuteNonQuery();
+            return (long)cmd.ExecuteScalar()!;
         }
     }
 
-    public List<ChatMessageRecord> QueryMessages(string userA, string userB, int limit = 100, long beforeTime = long.MaxValue)
+    public List<ChatMessageRecord> QueryMessages(string userA, string userB, int limit = 100,
+        long beforeTime = long.MaxValue, long beforeId = 0)
     {
         var key = GetConversationKey(userA, userB);
         var results = new List<ChatMessageRecord>();
@@ -188,13 +191,15 @@ public class ChatStorageService : IDisposable
             db.Open();
             using var cmd = db.CreateCommand();
             cmd.CommandText = @"
-                SELECT msg_type, content, sender, recipient, file_name, file_url, file_size, created_at
+                SELECT msg_type, content, sender, recipient, file_name, file_url, file_size, created_at, id
                 FROM chat_messages
-                WHERE conversation_key = @key AND created_at < @before
-                ORDER BY created_at DESC
+                WHERE conversation_key = @key
+                    AND (created_at < @before OR (created_at = @before AND id < @beforeId))
+                ORDER BY created_at DESC, id DESC
                 LIMIT @limit";
             cmd.Parameters.AddWithValue("@key", key);
             cmd.Parameters.AddWithValue("@before", beforeTime);
+            cmd.Parameters.AddWithValue("@beforeId", beforeId);
             cmd.Parameters.AddWithValue("@limit", limit);
 
             using var reader = cmd.ExecuteReader();
@@ -210,7 +215,8 @@ public class ChatStorageService : IDisposable
                     FileName = reader.IsDBNull(4) ? null : reader.GetString(4),
                     FileUrl = reader.IsDBNull(5) ? null : reader.GetString(5),
                     FileSize = reader.IsDBNull(6) ? null : reader.GetInt64(6),
-                    CreatedAt = reader.GetInt64(7)
+                    CreatedAt = reader.GetInt64(7),
+                    Id = reader.GetInt64(8)
                 });
             }
         }
@@ -222,12 +228,17 @@ public class ChatStorageService : IDisposable
     public List<ChatMessageRecord> SearchMessages(string? keyword = null,
         string? sender = null, string? recipient = null,
         long? startTime = null, long? endTime = null,
-        int limit = 200)
+        int limit = 200, string? participant = null)
     {
         var results = new List<ChatMessageRecord>();
         var conditions = new List<string>();
         var parameters = new List<(string name, object value)>();
 
+        if (participant != null)
+        {
+            conditions.Add("(sender = @participant OR recipient = @participant)");
+            parameters.Add(("@participant", participant));
+        }
         if (!string.IsNullOrWhiteSpace(keyword))
         {
             conditions.Add("(content LIKE @kw OR file_name LIKE @kw)");
@@ -445,6 +456,7 @@ public class ChatStorageService : IDisposable
 
 public class ChatMessageRecord
 {
+    public long Id { get; set; }
     public string ConversationKey { get; set; } = "";
     public string MsgType { get; set; } = "text";
     public string Content { get; set; } = "";

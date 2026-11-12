@@ -464,6 +464,67 @@ internal static class EntryPoint
             Check(!write.IsSuccessStatusCode); Check(!File.Exists(Path.Combine(user.Folders[0], "file.txt")));
         });
 
+        await Run("聊天推送、发送回执和历史记录使用同一编号", async () =>
+        {
+            var sender = NewUser();
+            var recipient = NewUser();
+            using var senderClient = new HttpClient(new HttpClientHandler { UseCookies = false }) { BaseAddress = http.BaseAddress };
+            using var recipientClient = new HttpClient(new HttpClientHandler { UseCookies = false }) { BaseAddress = http.BaseAddress };
+            foreach (var (client, user) in new[] { (senderClient, sender), (recipientClient, recipient) })
+            {
+                using var login = await http.PostAsJsonAsync("/api/auth/login", new { username = user.Username, password = "test-password" });
+                Check(login.IsSuccessStatusCode);
+                client.DefaultRequestHeaders.Add("Cookie", login.Headers.GetValues("Set-Cookie").Single().Split(';')[0]);
+            }
+
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            using var stream = await recipientClient.GetAsync("/api/chat/stream", HttpCompletionOption.ResponseHeadersRead, timeout.Token);
+            Check(stream.IsSuccessStatusCode);
+            using var reader = new StreamReader(await stream.Content.ReadAsStreamAsync(timeout.Token));
+            Check(await reader.ReadLineAsync(timeout.Token) == "event: connected");
+            await reader.ReadLineAsync(timeout.Token);
+            await reader.ReadLineAsync(timeout.Token);
+            var ids = new List<long>();
+            for (var i = 0; i < 2; i++)
+            {
+                using var sent = await senderClient.PostAsJsonAsync("/api/chat/send", new { to = recipient.Username, type = "text", content = "重复发送的同一段文字" }, timeout.Token);
+                Check(sent.IsSuccessStatusCode);
+                var receipt = await sent.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: timeout.Token);
+                var line = await reader.ReadLineAsync(timeout.Token);
+                Check(line?.StartsWith("data: ") == true);
+                using var live = JsonDocument.Parse(line![6..]);
+                await reader.ReadLineAsync(timeout.Token);
+                var id = receipt.GetProperty("id").GetInt64();
+                Check(id == live.RootElement.GetProperty("id").GetInt64());
+                Check(receipt.GetProperty("time").GetInt64() == live.RootElement.GetProperty("time").GetInt64());
+                ids.Add(id);
+            }
+            var history = await recipientClient.GetFromJsonAsync<JsonElement>($"/api/chat/history?with={sender.Username}&limit=50", timeout.Token);
+            var historyIds = history.GetProperty("messages").EnumerateArray().Select(message => message.GetProperty("id").GetInt64());
+            Check(ids.Distinct().Count() == 2 && historyIds.Order().SequenceEqual(ids.Order()));
+        });
+        await Run("聊天历史翻页保留同一毫秒内的独立消息", () => Sync(() =>
+        {
+            using var storage = new ChatStorageService(Path.Combine(Root, "chat-pagination"));
+            const long time = 1700000000000;
+            var first = storage.SaveMessage("sender", "receiver", "text", "相同", time: time);
+            var second = storage.SaveMessage("sender", "receiver", "text", "相同", time: time);
+            var latest = storage.QueryMessages("receiver", "sender", limit: 1).Single();
+            Check(latest.Id == second);
+            Check(storage.QueryMessages("receiver", "sender", 1, latest.CreatedAt, latest.Id).Single().Id == first);
+            Check(storage.QueryMessages("receiver", "sender", 1, latest.CreatedAt).Count == 0);
+        }));
+        await Run("聊天搜索只匹配参与者的收发记录", () => Sync(() =>
+        {
+            using var storage = new ChatStorageService(Path.Combine(Root, "chat-search"));
+            storage.SaveMessage("alice", "bob", "text", "查询样例，收到", time: 1);
+            storage.SaveMessage("bob", "alice", "text", "查询样例，发出", time: 2);
+            storage.SaveMessage("charlie", "david", "text", "查询样例，无关", time: 3);
+            var matches = storage.SearchMessages(keyword: "查询样例", limit: 2, participant: "bob");
+            Check(matches.Select(message => message.Content).SequenceEqual(new[] { "查询样例，发出", "查询样例，收到" }));
+            Check(storage.SearchMessages(sender: "charlie", participant: "bob").Count == 0);
+        }));
+
         await Run("搜索与文件变化并发运行", async () =>
         {
             var root = NewUser().Folders[0]; await Files.BuildIndexAsync(root);

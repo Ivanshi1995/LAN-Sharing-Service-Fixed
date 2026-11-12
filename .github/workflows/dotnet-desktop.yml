@@ -31,8 +31,8 @@ jobs:
         run: dotnet build LanFileShare.csproj -c Release --no-restore
       - name: 验证后端和接口
         run: dotnet run --project tests/Regression/Regression.csproj -c Release --no-restore -- "${{ runner.temp }}/verification.json"
-      - name: 验证文件校验脚本
-        run: node --test tests/fingerprint.test.js tests/download-retry.test.js
+      - name: 验证网页脚本
+        run: node --test tests/fingerprint.test.js tests/download-retry.test.js tests/chat-message.test.js
       - name: 发布单文件 EXE
         run: dotnet publish LanFileShare.csproj -p:PublishProfile=SingleFile -o "${{ runner.temp }}/singlefile"
       - name: 验证单文件 EXE

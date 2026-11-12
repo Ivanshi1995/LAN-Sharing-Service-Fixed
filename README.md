@@ -119,7 +119,7 @@ EXE 已包含 .NET 运行环境和网页资源。
 
 1. 执行 `dotnet build LanFileShare.csproj -c Release`。
 2. 执行 `dotnet run --project tests/Regression/Regression.csproj -c Release`。
-3. 执行 `node --test tests/fingerprint.test.js tests/download-retry.test.js`。
+3. 执行 `node --test tests/fingerprint.test.js tests/download-retry.test.js tests/chat-message.test.js`。
 
 ## 变更记录
 
@@ -136,3 +136,6 @@ EXE 已包含 .NET 运行环境和网页资源。
 | 2026-11-11 | HTML 预览支持从指定 CDN 加载 HTTPS 资源。 | v2.4.7。 |
 | 2026-11-12 | 公共共享下载中断后可从头重新下载。 | v2.4.8。 |
 | 2026-11-12 | 点击公共共享页的文件夹整行即可打开。 | v2.4.9。 |
+| 2026-11-12 | 聊天按消息编号合并实时消息和聊天记录。 | v2.4.10。 |
+| 2026-11-12 | 浏览器页签和聊天按钮显示未读消息提醒。 | v2.4.11。 |
+| 2026-11-12 | 用户列表改为右侧抽屉。聊天记录置于对话窗口上方。 | v2.4.12。 |

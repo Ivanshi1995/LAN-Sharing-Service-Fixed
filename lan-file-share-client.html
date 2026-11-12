@@ -4,6 +4,7 @@
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>LanFileShare</title>
+<link id="chat-tab-icon" rel="icon" href="/favicon.ico"/>
 <script src="CDN/tailwindcss.js"></script>
 <script src="CDN/pdf.min.js"></script>
 <script src="CDN/mammoth.browser.min.js"></script>
@@ -125,6 +126,21 @@
     #chat-info-btn { position:fixed;bottom:96px;right:32px;z-index:9998;background:none;border:none;border-radius:50%;width:48px;height:48px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform 0.2s,box-shadow 0.2s; }
     #chat-info-btn:hover { transform:translateY(-2px);box-shadow:0 6px 24px rgba(18,150,219,0.35); }
     #chat-info-btn svg { width:48px;height:48px;color:#1296db; }
+    #chat-info-btn[data-unread] svg { animation:chat-unread-pulse 1.2s ease-in-out infinite; }
+    @keyframes chat-unread-pulse { 50% { opacity:0.55; } }
+    @media (prefers-reduced-motion: reduce) { #chat-info-btn[data-unread] svg { animation:none; } }
+    html:has(#modal-user-list[open], #chat-history-modal[open]) { overflow:hidden; }
+    #modal-user-list {
+        position:fixed; inset:0 0 0 auto; margin:0; padding:0; border:0;
+        width:min(34rem, calc(100% - 1rem)); max-width:none;
+        height:100%; height:100dvh; max-height:none; overflow:hidden;
+        border-radius:16px 0 0 16px; box-shadow:-12px 0 36px rgba(15,23,42,.2);
+    }
+    #modal-user-list[open] { display:flex; animation:user-list-enter .18s ease-out; }
+    #modal-user-list::backdrop { background:rgba(15,23,42,.4); }
+    #modal-user-list .user-list-table { table-layout:fixed; overflow-wrap:anywhere; }
+    @keyframes user-list-enter { from { transform:translateX(100%); } }
+    @media (prefers-reduced-motion: reduce) { #modal-user-list[open] { animation:none; } }
     /* 文档预览 */
     #doc-preview-container { max-height:70vh; overflow-y:auto; padding:24px 32px; background:#fff; font-size:14px; line-height:1.8; color:#333; font-family:'Segoe UI','Microsoft YaHei',sans-serif; }
     #doc-preview-container table { border-collapse:collapse; width:100%; margin:8px 0; }
@@ -270,7 +286,7 @@
             <span class="text-white text-sm font-medium" id="current-user-label">--</span>
             <button type="button" class="text-blue-100 hover:text-white text-sm underline underline-offset-2" onclick="openChangePassword()">修改密码</button>
             <button type="button" class="text-blue-100 hover:text-white text-sm underline underline-offset-2" onclick="openShareManage()">分享管理</button>
-            <button type="button" class="text-blue-100 hover:text-white text-sm underline underline-offset-2" onclick="openUserList()">用户列表</button>
+            <button type="button" class="text-blue-100 hover:text-white text-sm underline underline-offset-2" aria-haspopup="dialog" aria-controls="modal-user-list" onclick="openUserList()">用户列表</button>
             <button type="button" class="text-blue-100 hover:text-white text-sm underline underline-offset-2 hidden" id="admin-menu-btn" onclick="window.open(window.location.origin + '/admin', '_blank')">管理后台</button>
             <button type="button" class="text-blue-100 hover:text-white text-sm underline underline-offset-2" onclick="doLogout()">退出</button>
         </div>
@@ -561,25 +577,25 @@
 </div>
 
 <!-- 用户列表弹窗 -->
-<div class="fixed inset-0 z-50 flex items-center justify-center hidden p-4" id="modal-user-list" style="background: rgba(0,0,0,0.5);" onclick="if(event.target===this)closeUserList()">
-<div class="bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[85vh] flex flex-col" onclick="event.stopPropagation()">
+<dialog id="modal-user-list" aria-labelledby="user-list-title" onclick="if(event.target===this)closeUserList()">
+<div class="bg-white w-full min-h-0 flex flex-col">
 <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100 shrink-0">
-<h4 class="font-bold text-slate-800 flex items-center gap-2">
+<h4 id="user-list-title" class="font-bold text-slate-800 flex items-center gap-2">
 <svg class="iconify-icon text-indigo-600"><use href="#account_group"/></svg>
 用户列表
 </h4>
-<button type="button" class="text-slate-400 hover:text-slate-600 p-1" onclick="closeUserList()" title="关闭">
+<button type="button" class="text-slate-400 hover:text-slate-600 p-1" onclick="closeUserList()" aria-label="关闭用户列表" autofocus>
 <svg class="iconify-icon text-xl"><use href="#close"/></svg>
 </button>
 </div>
-<div class="p-5 overflow-y-auto flex-1">
-<table class="w-full text-sm">
+<div class="p-4 sm:p-5 overflow-y-auto flex-1 min-h-0">
+<table class="user-list-table w-full text-sm">
 <thead>
 <tr class="border-b border-slate-200 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
-<th class="pb-3 pr-4">用户名</th>
-<th class="pb-3 pr-4">登录IP</th>
-<th class="pb-3 pr-4">状态</th>
-<th class="pb-3">聊天</th>
+<th scope="col" class="pb-3 pr-2">用户名</th>
+<th scope="col" class="pb-3 pr-2">登录 IP</th>
+<th scope="col" class="pb-3 w-14">状态</th>
+<th scope="col" class="pb-3 w-10">聊天</th>
 </tr>
 </thead>
 <tbody id="user-list-body">
@@ -591,7 +607,7 @@
 <button class="flex-1 px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-slate-600 font-medium hover:bg-slate-200 transition-all" onclick="closeUserList()">关闭</button>
 </div>
 </div>
-</div>
+</dialog>
 
 <!-- Toast -->
 <div class="fixed bottom-6 left-1/2 -translate-x-1/2 hidden" id="toast" style="z-index:100001;">
@@ -989,9 +1005,8 @@ async function doLogout() {
         logAction('用户登出');
         await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
     } catch (_) {}
-    // 关闭聊天窗口并断开 SSE
     closeChatWindow();
-    if (_chatEventSource) { _chatEventSource.close(); _chatEventSource = null; }
+    closeUserList();
     selectedFiles = [];
     currentPath = '';
     _sharedFolderNames = {};
@@ -3615,14 +3630,20 @@ function openBandwidthManagement() {
 }
 
 // ========== 用户列表 ==========
+let _userListRequest = null;
 
 async function openUserList() {
-    document.getElementById('modal-user-list').classList.remove('hidden');
-    document.getElementById('user-list-body').innerHTML = '<tr><td colspan="4" class="text-slate-400 text-center py-4"><svg class="iconify-icon animate-spin inline"><use href="#loading"/></svg> 加载中...</td></tr>';
+    const drawer = document.getElementById('modal-user-list');
+    if (drawer.open) return;
+    drawer.showModal();
+    const request = new AbortController();
+    _userListRequest = request;
+    const tbody = document.getElementById('user-list-body');
+    tbody.innerHTML = '<tr><td colspan="4" class="text-slate-400 text-center py-4"><svg class="iconify-icon animate-spin inline"><use href="#loading"/></svg> 加载中...</td></tr>';
     try {
-        const res = await fetch('/api/users/status', { credentials: 'same-origin' });
+        const res = await fetch('/api/users/status', { credentials: 'same-origin', signal: request.signal });
         const data = await res.json();
-        const tbody = document.getElementById('user-list-body');
+        if (request.signal.aborted) return;
         if (!data.success) {
             tbody.innerHTML = `<tr><td colspan="4" class="text-red-500 text-center py-4">${escHtml(data.error || '加载失败')}</td></tr>`;
             return;
@@ -3645,31 +3666,33 @@ async function openUserList() {
             const statusText = u.online ? '在线' : '离线';
             const dotColor = u.online ? 'bg-emerald-500' : 'bg-slate-300';
             return `<tr class="border-b border-slate-100">
-                <td class="py-3 pr-4 font-medium text-slate-700">${escHtml(u.username)}${isSelf ? ' <span class="text-xs text-slate-400">(自己)</span>' : ''}</td>
-                <td class="py-3 pr-4 text-slate-500">${u.online ? escHtml(u.ip) : '<span class="text-slate-300">-</span>'}</td>
-                <td class="py-3 pr-4 ${statusClass} font-medium"><span class="w-2 h-2 ${dotColor} rounded-full inline-block shrink-0 mr-1.5 align-middle"></span>${statusText}</td>
-                <td class="py-3"><button type="button" class="p-1.5 rounded-lg ${effectiveOnline ? 'hover:bg-emerald-50 text-emerald-500 chat-start-btn' : 'text-slate-300 cursor-default'}" ${effectiveOnline ? `data-ip="${escHtml(u.ip)}" data-username="${escHtml(u.username)}"` : 'disabled'} title="${effectiveOnline ? '发起聊天' : (isSelf ? '不能与自己聊天' : '离线不可聊天')}"><svg class="iconify-icon text-xl"><use href="#chat"/></svg></button></td>
+                <td class="py-3 pr-2 font-medium text-slate-700">${escHtml(u.username)}${isSelf ? ' <span class="text-xs text-slate-400">(自己)</span>' : ''}</td>
+                <td class="py-3 pr-2 text-slate-500">${u.online ? escHtml(u.ip) : '<span class="text-slate-300">-</span>'}</td>
+                <td class="py-3 ${statusClass} font-medium"><span class="w-2 h-2 ${dotColor} rounded-full inline-block shrink-0 mr-1.5 align-middle"></span>${statusText}</td>
+                <td class="py-3"><button type="button" class="p-1.5 rounded-lg ${effectiveOnline ? 'hover:bg-emerald-50 text-emerald-500 chat-start-btn' : 'text-slate-300 cursor-default'}" ${effectiveOnline ? `data-username="${escAttr(u.username)}"` : 'disabled'} title="${effectiveOnline ? '发起聊天' : (isSelf ? '不能与自己聊天' : '离线不可聊天')}" aria-label="${effectiveOnline ? '与 ' + escAttr(u.username) + ' 聊天' : '发起聊天'}"><svg class="iconify-icon text-xl" aria-hidden="true"><use href="#chat"/></svg></button></td>
             </tr>`;
         }).join('');
-    } catch (e) {
-        document.getElementById('user-list-body').innerHTML = '<tr><td colspan="4" class="text-red-500 text-center py-4">网络错误</td></tr>';
+    } catch {
+        if (!request.signal.aborted) tbody.innerHTML = '<tr><td colspan="4" class="text-red-500 text-center py-4">网络错误</td></tr>';
+    } finally {
+        if (_userListRequest === request) _userListRequest = null;
     }
 }
 
 function closeUserList() {
-    document.getElementById('modal-user-list').classList.add('hidden');
+    _userListRequest?.abort();
+    document.getElementById('modal-user-list').close();
 }
+
+document.getElementById('modal-user-list').addEventListener('cancel', event => {
+    event.preventDefault();
+    closeUserList();
+});
 
 // 用户列表聊天按钮事件委托
 document.getElementById('user-list-body').addEventListener('click', function(e) {
-    const btn = e.target.closest('.chat-start-btn');
-    if (!btn) return;
-    const ip = btn.getAttribute('data-ip');
-    const username = btn.getAttribute('data-username');
-    if (ip && username) {
-        // 使用用户名作为聊天标识（与后端 SSE 按用户名匹配一致）
-        openChatWindow(username, username);
-    }
+    const username = e.target.closest('.chat-start-btn')?.dataset.username;
+    if (username) openChatWindow(username, username);
 });
 
 // ========== 分享管理 ==========
@@ -3816,7 +3839,7 @@ sendHeartbeat();
 </script>
 
 <!-- 聊天信息悬浮按钮 -->
-<button id="chat-info-btn" onclick="toggleChatInfoPanel()" title="聊天消息"><svg width="48" height="48" viewBox="0 0 1024 1024"><use href="#chat_info"/></svg></button>
+<button id="chat-info-btn" type="button" onclick="toggleChatInfoPanel()" title="聊天消息"><svg width="48" height="48" viewBox="0 0 1024 1024" aria-hidden="true"><use href="#chat_info"/></svg><span id="chat-unread-badge" class="hidden absolute -top-1 -right-1 min-w-5 px-1 rounded-full bg-red-600 text-white text-xs font-semibold leading-5" aria-hidden="true"></span></button>
 
 <!-- 返回顶部 -->
 <button id="back-to-top" onclick="window.scrollTo({top:0,behavior:'smooth'})" style="position:fixed;bottom:32px;right:32px;z-index:9999;background:#fff;border:none;border-radius:50%;width:48px;height:48px;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 16px rgba(0,0,0,0.12);transition:transform 0.2s,box-shadow 0.2s;" title="返回顶部">
@@ -4234,26 +4257,27 @@ sendHeartbeat();
 
 /* 历史记录弹窗 */
 #chat-history-modal {
-    display: none;
     position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0,0,0,0.4);
-    z-index: 20000;
-    justify-content: center;
-    align-items: center;
-}
-#chat-history-modal.active {
-    display: flex;
-}
-#chat-history-modal .history-dialog {
+    inset: 0;
+    margin: auto;
+    padding: 0;
+    border: 0;
     background: #fff;
     border-radius: 16px;
-    width: 90%;
-    max-width: 650px;
+    width: min(650px, calc(100% - 2rem));
+    max-width: none;
     max-height: 80vh;
+    max-height: 80dvh;
+    overflow: hidden;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.2);
+}
+#chat-history-modal[open] { display: flex; }
+#chat-history-modal::backdrop { background: rgba(15,23,42,.4); }
+#chat-history-modal .history-dialog {
+    width: 100%;
+    min-height: 0;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 8px 40px rgba(0,0,0,0.2);
 }
 #chat-history-modal .history-header {
     padding: 16px 20px;
@@ -4313,6 +4337,7 @@ sendHeartbeat();
 }
 #chat-history-modal .history-results {
     flex: 1;
+    min-height: 0;
     overflow-y: auto;
     padding: 12px 20px;
 }
@@ -4370,7 +4395,7 @@ sendHeartbeat();
     <div id="chat-window">
         <div class="chat-header" id="chat-drag-handle">
             <span id="chat-header-title">在线聊天</span>
-            <button id="chat-history-btn" title="聊天记录">
+            <button id="chat-history-btn" type="button" title="聊天记录" aria-haspopup="dialog" aria-controls="chat-history-modal">
                 <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg"><path d="M763.221333 702.848L981.333333 921.002667 921.002667 981.333333l-218.154667-218.112A403.626667 403.626667 0 0 1 448 853.333333a405.333333 405.333333 0 1 1 405.333333-405.333333 403.626667 403.626667 0 0 1-90.112 254.848zM448 768a320 320 0 1 0 0-640 320 320 0 0 0 0 640z"/></svg>
             </button>
             <button class="chat-close-btn" id="chat-close-btn" title="关闭">×</button>
@@ -4402,14 +4427,10 @@ window._chatState = {
     targetIp: '',
     targetUsername: '',
     visible: false,
-    // 按聊天对象用户名分开存储消息：{ username: [ { type, content, isSelf, ip, fileName, fileUrl, time }, ... ] }
-    chatMessages: {},
+    chatMessages: Object.create(null),
     posX: null,
     posY: null,
-    blinking: false,     // 悬浮球闪烁状态
-    unreadCount: 0,      // 未读消息计数
-    unreadFrom: null,    // 未读消息发送者用户名（闪烁时点击直接打开对应聊天）
-    unreadFromIp: null   // 未读消息发送者 IP
+    unreadBySender: new Map()
 };
 
 // 获取聊天 DOM 引用
@@ -4436,7 +4457,7 @@ function _chatScrollBottom() {
 // 渲染消息列表（仅渲染当前聊天对象的消息）
 function _chatRenderMessages() {
     const st = window._chatState;
-    const msgs = st.chatMessages[st.targetIp] || [];
+    const msgs = st.chatMessages[st.targetUsername] || [];
     _chatContent.innerHTML = msgs.map(m => {
         const isSelf = m.isSelf;
         const cls = isSelf ? 'msg-right' : 'msg-left';
@@ -4495,229 +4516,110 @@ function _chatRenderMessages() {
     _chatScrollBottom();
 }
 
-// 添加消息到状态（按聊天对象 IP 分桶存储）
-function _chatAddMessage(msg) {
+function _chatMergeMessages(username, messages) {
     const st = window._chatState;
-    const key = msg.isSelf ? st.targetIp : msg.ip;
-    if (!msg.time) msg.time = Date.now();  // 自动添加时间戳
-    if (!st.chatMessages[key]) st.chatMessages[key] = [];
-    st.chatMessages[key].push(msg);
-    // 仅当聊天窗口打开且对应同一聊天对象时才实时渲染
-    if (st.visible && key === st.targetIp) {
-        _chatRenderMessages();
-    }
+    const existing = st.chatMessages[username] || [];
+    const ids = new Set(existing.map(message => message.id));
+    const added = messages.filter(message => {
+        if (message.id == null) return true;
+        if (ids.has(message.id)) return false;
+        ids.add(message.id);
+        return true;
+    });
+    if (added.length === 0) return false;
+    st.chatMessages[username] = [...existing, ...added].sort((a, b) => a.time - b.time || (a.id ?? 0) - (b.id ?? 0));
+    return true;
 }
 
-// 追加文字消息
-function _chatAddTextMsg(text, isSelf, ip) {
-    _chatAddMessage({
-        type: 'text',
-        content: text,
-        isSelf: isSelf,
-        ip: ip || (isSelf ? window._chatState.selfIp : window._chatState.targetIp)
-    });
-}
-
-// 追加图片消息
-function _chatAddImageMsg(src, isSelf, ip) {
-    _chatAddMessage({
-        type: 'image',
-        content: src,
-        isSelf: isSelf,
-        ip: ip || (isSelf ? window._chatState.selfIp : window._chatState.targetIp)
-    });
-}
-
-// 追加文件消息
-function _chatAddFileMsg(fileName, fileUrl, isSelf, ip) {
-    _chatAddMessage({
-        type: 'file',
-        content: fileUrl,
-        fileName: fileName,
-        fileUrl: fileUrl,
-        isSelf: isSelf,
-        ip: ip || (isSelf ? window._chatState.selfIp : window._chatState.targetIp)
-    });
+function _chatAddMessage(username, message) {
+    if (!_chatMergeMessages(username, [message])) return false;
+    const st = window._chatState;
+    if (st.visible && st.targetUsername === username) _chatRenderMessages();
+    return true;
 }
 
 // ========== 聊天历史加载状态 ==========
-window._chatHistoryLoadState = {};
-// 每个聊天对象的加载状态: { [username]: { hasMore, oldestTime, loadingMore } }
+window._chatHistoryLoadState = Object.create(null);
+
+function _positionChatWindow() {
+    const st = window._chatState;
+    const maxX = Math.max(0, document.documentElement.clientWidth - _chatWin.offsetWidth);
+    const maxY = Math.max(0, document.documentElement.clientHeight - _chatWin.offsetHeight);
+    st.posX = Math.max(0, Math.min(st.posX ?? maxX / 2, maxX));
+    st.posY = Math.max(0, Math.min(st.posY ?? maxY / 2, maxY));
+    _chatWin.style.left = st.posX + 'px';
+    _chatWin.style.top = st.posY + 'px';
+}
 
 // 打开聊天窗口
 function openChatWindow(targetIp, targetUsername) {
+    closeUserList();
     const st = window._chatState;
-    const prevTarget = st.targetUsername;
-
     st.targetIp = targetIp;
     st.targetUsername = targetUsername || targetIp;
     st.visible = true;
 
     _chatHeaderTitle.textContent = '与 ' + st.targetUsername + ' 在线聊天';
 
-    // 如果切换到不同对象，先显示加载中
-    if (prevTarget !== st.targetUsername) {
+    if (st.chatMessages[st.targetUsername]?.length) {
+        _chatRenderMessages();
+    } else {
         _chatContent.innerHTML = '<div style="text-align:center;color:#999;padding:40px 0;">加载中...</div>';
     }
 
-    // 默认居中定位
-    if (st.posX === null || st.posY === null) {
-        const vw = window.innerWidth;
-        const vh = window.innerHeight;
-        const w = 420;
-        const h = 600;
-        st.posX = Math.max(0, (vw - w) / 2);
-        st.posY = Math.max(0, (vh - h) / 2);
-    }
-
-    _chatWin.style.left = st.posX + 'px';
-    _chatWin.style.top = st.posY + 'px';
     _chatOverlay.classList.add('active');
     _chatWin.classList.add('visible');
+    _positionChatWindow();
     _chatMsgInput.focus();
+    _markOpenChatRead();
 
     // 自动加载历史消息
-    _loadChatHistoryForWindow(targetUsername);
+    _loadChatHistoryForWindow(st.targetUsername);
 }
 
-// 为聊天窗口加载历史消息（合并到消息列表，而非弹窗显示）
-async function _loadChatHistoryForWindow(username) {
+// 加载聊天窗口的最近记录或更早记录。
+async function _loadChatHistoryForWindow(username, older = false) {
     const st = window._chatState;
-    const key = username;
+    const state = window._chatHistoryLoadState[username] ??= { oldest: null, hasMore: false, loading: false };
+    if (state.loading || (older && !state.hasMore)) return;
 
-    // 初始化加载状态
-    if (!window._chatHistoryLoadState[key]) {
-        window._chatHistoryLoadState[key] = { hasMore: true, oldestTime: null, loadingMore: false };
-    }
-
+    state.loading = true;
     try {
-        const params = new URLSearchParams({ with: username, limit: '50' });
+        const limit = older ? 30 : 50;
+        const params = new URLSearchParams({ with: username, limit });
+        if (older) {
+            params.set('before', state.oldest.time);
+            params.set('beforeId', state.oldest.id);
+        }
         const resp = await fetch('/api/chat/history?' + params.toString());
-        if (!resp.ok) {
-            _chatContent.innerHTML = '<div style="text-align:center;color:#999;padding:40px 0;">加载聊天记录失败</div>';
-            return;
-        }
+        if (!resp.ok) throw new Error('加载聊天记录失败');
         const data = await resp.json();
-        if (!data.ok || !data.messages) {
-            _chatContent.innerHTML = '<div style="text-align:center;color:#999;padding:40px 0;">暂无聊天记录</div>';
-            return;
+        if (window._chatHistoryLoadState[username] !== state) return;
+        if (!data.ok || !Array.isArray(data.messages)) throw new Error('加载聊天记录失败');
+
+        const messages = data.messages;
+        if (older || !state.oldest) {
+            state.hasMore = messages.length === limit;
+            if (messages.length) state.oldest = messages[messages.length - 1];
         }
+        const added = _chatMergeMessages(username, messages.map(message => ({
+            ...message,
+            ip: message.isSelf ? st.selfIp : (message.from || username)
+        })));
 
-        const histMsgs = data.messages;
-        window._chatHistoryLoadState[key].hasMore = histMsgs.length >= 50;
-        if (histMsgs.length > 0) {
-            window._chatHistoryLoadState[key].oldestTime = histMsgs[histMsgs.length - 1].time;
-        }
-
-        // 将历史消息转换为前端消息格式（API 返回倒序，反转后按时间正序）
-        const historyFormatted = histMsgs.reverse().map(m => ({
-            type: m.type,
-            content: m.content,
-            isSelf: m.isSelf,
-            ip: m.isSelf ? st.selfIp : (m.from || username),
-            time: m.time,
-            fileName: m.fileName,
-            fileUrl: m.fileUrl,
-            fileSize: m.fileSize,
-            fromHistory: true
-        }));
-
-        // 合并：历史消息 + 已缓存的实时消息（去重，按时间戳）
-        const existingMsgs = st.chatMessages[username] || [];
-        const existingTimes = new Set(existingMsgs.map(m => m.time));
-        const mergedMsgs = historyFormatted.filter(m => !existingTimes.has(m.time));
-
-        // 先放历史消息，再放已有的实时消息
-        st.chatMessages[username] = [...historyFormatted, ...existingMsgs];
-
-        // 仅在当前聊天对象一致时渲染
-        if (st.visible && st.targetUsername === username) {
+        if (st.visible && st.targetUsername === username && (!older || added)) {
+            const oldHeight = _chatContent.scrollHeight;
+            const oldTop = _chatContent.scrollTop;
             _chatRenderMessages();
-            _chatScrollBottom();
+            if (older) _chatContent.scrollTop = oldTop + _chatContent.scrollHeight - oldHeight;
         }
-    } catch (e) {
-        if (st.visible && st.targetUsername === username) {
+    } catch {
+        if (window._chatHistoryLoadState[username] === state && !older && st.visible &&
+            st.targetUsername === username && !st.chatMessages[username]?.length) {
             _chatContent.innerHTML = '<div style="text-align:center;color:#999;padding:40px 0;">加载聊天记录失败</div>';
         }
-    }
-}
-
-// 向上滚动加载更多历史消息
-async function _loadMoreHistoryForWindow(username) {
-    const st = window._chatState;
-    const key = username;
-    const hState = window._chatHistoryLoadState[key];
-    if (!hState || !hState.hasMore || hState.loadingMore) return;
-
-    hState.loadingMore = true;
-
-    // 在顶部显示加载中提示
-    const loadingEl = document.createElement('div');
-    loadingEl.id = 'chat-loading-more';
-    loadingEl.style.cssText = 'text-align:center;color:#999;padding:12px 0;font-size:13px;';
-    loadingEl.textContent = '加载中...';
-    _chatContent.insertBefore(loadingEl, _chatContent.firstChild);
-
-    // 记录当前滚动高度，用于加载后保持位置
-    const oldScrollHeight = _chatContent.scrollHeight;
-
-    try {
-        const params = new URLSearchParams({ with: username, limit: '30', before: String(hState.oldestTime) });
-        const resp = await fetch('/api/chat/history?' + params.toString());
-        if (!resp.ok) {
-            hState.hasMore = false;
-            loadingEl.textContent = '加载失败';
-            setTimeout(() => loadingEl.remove(), 2000);
-            return;
-        }
-        const data = await resp.json();
-        if (!data.ok || !data.messages || data.messages.length === 0) {
-            hState.hasMore = false;
-            loadingEl.textContent = '没有更多记录了';
-            setTimeout(() => loadingEl.remove(), 2000);
-            return;
-        }
-
-        hState.hasMore = data.messages.length >= 30;
-        if (data.messages.length > 0) {
-            hState.oldestTime = data.messages[data.messages.length - 1].time;
-        }
-
-        // 转换为前端格式（API 返回倒序，反转后正序）
-        const moreFormatted = data.messages.reverse().map(m => ({
-            type: m.type,
-            content: m.content,
-            isSelf: m.isSelf,
-            ip: m.isSelf ? st.selfIp : (m.from || username),
-            time: m.time,
-            fileName: m.fileName,
-            fileUrl: m.fileUrl,
-            fileSize: m.fileSize,
-            fromHistory: true
-        }));
-
-        // 合并到已有消息的前面（去重）
-        const existingMsgs = st.chatMessages[username] || [];
-        const existingTimes = new Set(existingMsgs.map(m => m.time));
-        const uniqueNewMsgs = moreFormatted.filter(m => !existingTimes.has(m.time));
-        st.chatMessages[username] = [...uniqueNewMsgs, ...existingMsgs];
-
-        // 移除加载中提示
-        loadingEl.remove();
-
-        // 仅当前聊天对象一致时重新渲染
-        if (st.visible && st.targetUsername === username) {
-            // 保存当前滚动到底部的距离
-            const newScrollHeight = _chatContent.scrollHeight;
-            _chatRenderMessages();
-            // 恢复滚动位置（新消息加载后，保持在原来的相对位置）
-            _chatContent.scrollTop = _chatContent.scrollHeight - newScrollHeight + oldScrollHeight;
-        }
-    } catch (e) {
-        loadingEl.textContent = '加载失败';
-        setTimeout(() => loadingEl.remove(), 2000);
     } finally {
-        hState.loadingMore = false;
+        state.loading = false;
     }
 }
 
@@ -4725,10 +4627,7 @@ async function _loadMoreHistoryForWindow(username) {
 function closeChatWindow() {
     const st = window._chatState;
     st.visible = false;
-    st.blinking = false;
-    st.unreadCount = 0;
-    st.unreadFrom = null;
-    st.unreadFromIp = null;
+    _chatEl('chat-history-modal').close();
     st.targetIp = '';
     st.targetUsername = '';
     _chatContent.innerHTML = '';
@@ -4748,7 +4647,7 @@ let _chatDragOffX = 0;
 let _chatDragOffY = 0;
 
 _chatDragHandle.addEventListener('mousedown', function(e) {
-    if (e.target.closest('#chat-close-btn')) return;
+    if (e.target.closest('button')) return;
     _chatIsDragging = true;
     const rect = _chatWin.getBoundingClientRect();
     _chatDragOffX = e.clientX - rect.left;
@@ -4779,14 +4678,8 @@ _chatCloseBtn.addEventListener('click', closeChatWindow);
 // 聊天内容区滚动监听：滚动到顶部附近时加载更多历史消息
 _chatContent.addEventListener('scroll', function() {
     const st = window._chatState;
-    if (!st.visible || !st.targetUsername) return;
-    const key = st.targetUsername;
-    const hState = window._chatHistoryLoadState[key];
-    if (!hState || !hState.hasMore || hState.loadingMore) return;
-
-    // 滚动到距离顶部 50px 以内时触发加载更多
-    if (_chatContent.scrollTop < 50) {
-        _loadMoreHistoryForWindow(key);
+    if (st.visible && st.targetUsername && _chatContent.scrollTop < 50) {
+        _loadChatHistoryForWindow(st.targetUsername, true);
     }
 });
 
@@ -4856,26 +4749,39 @@ _chatContent.addEventListener('click', function(e) {
 });
 
 // ========== 发送文字消息 ==========
+async function _chatSendMessage(username, message) {
+    const conversations = window._chatState.chatMessages;
+    const resp = await fetch('/api/chat/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to: username, ...message })
+    });
+    if (!resp.ok) throw new Error('发送失败');
+    const { id, time } = await resp.json();
+    const st = window._chatState;
+    if (st.chatMessages === conversations) _chatAddMessage(username, { ...message, id, time, isSelf: true, ip: st.selfIp });
+}
+
 async function _chatSendText() {
     const text = _chatMsgInput.value.trim();
-    if (!text) return;
     const st = window._chatState;
-    _chatAddTextMsg(text, true);
+    const username = st.targetUsername;
+    const conversations = st.chatMessages;
+    if (!text || !username) return;
     _chatMsgInput.value = '';
     _chatMsgInput.focus();
-    // POST 到服务端转发给目标用户
     try {
-        await fetch('/api/chat/send', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ to: st.targetUsername, type: 'text', content: text })
-        });
-    } catch (e) { /* 发送失败也不影响本地显示 */ }
+        await _chatSendMessage(username, { type: 'text', content: text });
+    } catch {
+        if (st.chatMessages !== conversations) return;
+        if (st.targetUsername === username && !_chatMsgInput.value) _chatMsgInput.value = text;
+        showToast('消息发送失败。请重试。');
+    }
 }
 _chatSendBtn.addEventListener('click', _chatSendText);
 
 _chatMsgInput.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') _chatSendText();
+    if (e.key === 'Enter' && !e.isComposing) _chatSendText();
 });
 
 // ========== 聊天文件上传工具函数 ==========
@@ -4913,286 +4819,155 @@ async function _chatUploadFile(file) {
     return await resp.json();
 }
 
-// ========== 上传图片（上传到服务端 → 发送 fileUrl 消息）==========
-_chatImageUpload.addEventListener('change', async function(e) {
-    const file = e.target.files[0];
+async function _chatSendAttachment(input, type, label, maxSizeMiB) {
+    const file = input.files[0];
     if (!file) return;
-    _chatImageUpload.value = '';
+    input.value = '';
 
-    // 图片大小限制 10MB
-    if (file.size > 10 * 1024 * 1024) {
-        showToast('图片不能超过 10MB');
+    if (file.size > maxSizeMiB * 1024 * 1024) {
+        showToast(label + '不能超过 ' + maxSizeMiB + ' MiB');
         return;
     }
 
     const st = window._chatState;
-    const tempId = 'img_temp_' + Date.now();
-
-    // 本地立即显示上传中状态
-    _chatAddMessage({
-        type: 'image',
-        content: '',
-        isSelf: true,
-        ip: st.selfIp,
-        fileName: file.name,
-        fileUrl: '',
-        uploading: true,
-        tempId: tempId
-    });
-
+    const username = st.targetUsername;
+    if (!username) return;
+    const conversations = st.chatMessages;
+    const pending = { type, fileName: file.name, isSelf: true, ip: st.selfIp, time: Date.now(), uploading: true };
+    _chatAddMessage(username, pending);
     try {
-        const result = await _chatUploadFile(file);
-        // 更新本地消息为完成状态
-        const key = st.targetIp;
-        const msgs = st.chatMessages[key] || [];
-        const msg = msgs.find(m => m.tempId === tempId);
-        if (msg) {
-            msg.fileUrl = result.downloadUrl;
-            msg.fileId = result.fileId;
-            msg.uploading = false;
-            msg.content = result.downloadUrl;
-        }
-        if (st.visible && key === st.targetIp) {
-            _chatRenderMessages();
-        }
-
-        // 发送消息通知对方
-        await fetch('/api/chat/send', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                to: st.targetUsername,
-                type: 'image',
-                content: result.fileId,
-                fileName: file.name,
-                fileUrl: result.downloadUrl
-            })
+        const result = await _chatUploadFile(file).finally(() => {
+            conversations[username] = conversations[username].filter(message => message !== pending);
+            if (st.chatMessages === conversations && st.visible && st.targetUsername === username) _chatRenderMessages();
         });
-    } catch (err) {
-        showToast('图片发送失败: ' + (err.message || '未知错误'));
-        // 移除失败的临时消息
-        const key = st.targetIp;
-        const msgs = st.chatMessages[key] || [];
-        st.chatMessages[key] = msgs.filter(m => m.tempId !== tempId);
-        if (st.visible && key === st.targetIp) {
-            _chatRenderMessages();
-        }
-    }
-});
-
-// ========== 上传附件（上传到服务端 → 发送 fileUrl 消息）==========
-_chatFileUpload.addEventListener('change', async function(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    _chatFileUpload.value = '';
-
-    // 文件大小限制 50MB
-    if (file.size > 50 * 1024 * 1024) {
-        showToast('文件不能超过 50MB');
-        return;
-    }
-
-    const st = window._chatState;
-    const tempId = 'file_temp_' + Date.now();
-
-    // 本地立即显示上传中状态
-    _chatAddMessage({
-        type: 'file',
-        content: '',
-        isSelf: true,
-        ip: st.selfIp,
-        fileName: file.name,
-        fileSize: file.size,
-        fileUrl: '',
-        uploading: true,
-        tempId: tempId
-    });
-
-    try {
-        const result = await _chatUploadFile(file);
-        // 更新本地消息
-        const key = st.targetIp;
-        const msgs = st.chatMessages[key] || [];
-        const msg = msgs.find(m => m.tempId === tempId);
-        if (msg) {
-            msg.fileUrl = result.downloadUrl;
-            msg.fileId = result.fileId;
-            msg.fileSize = result.fileSize;
-            msg.uploading = false;
-            msg.content = result.downloadUrl;
-        }
-        if (st.visible && key === st.targetIp) {
-            _chatRenderMessages();
-        }
-
-        // 发送消息通知对方
-        await fetch('/api/chat/send', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                to: st.targetUsername,
-                type: 'file',
-                content: result.fileId,
-                fileName: file.name,
-                fileUrl: result.downloadUrl
-            })
+        if (st.chatMessages !== conversations) return;
+        await _chatSendMessage(username, {
+            type,
+            content: result.fileId,
+            fileName: file.name,
+            fileUrl: result.downloadUrl,
+            fileSize: result.fileSize
         });
-    } catch (err) {
-        showToast('文件发送失败: ' + (err.message || '未知错误'));
-        const key = st.targetIp;
-        const msgs = st.chatMessages[key] || [];
-        st.chatMessages[key] = msgs.filter(m => m.tempId !== tempId);
-        if (st.visible && key === st.targetIp) {
-            _chatRenderMessages();
-        }
-    }
-});
-
-// 窗口 resize 时保持窗口在可视区域内
-window.addEventListener('resize', function() {
-    const st = window._chatState;
-    if (!st.visible) return;
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    const w = _chatWin.offsetWidth || 420;
-    const h = _chatWin.offsetHeight || 600;
-    if (st.posX + w > vw) st.posX = Math.max(0, vw - w);
-    if (st.posY + h > vh) st.posY = Math.max(0, vh - h);
-    _chatWin.style.left = st.posX + 'px';
-    _chatWin.style.top = st.posY + 'px';
-});
-
-// ========== 聊天信息悬浮按钮：点击打开/关闭聊天窗口 ==========
-function toggleChatInfoPanel() {
-    // 未登录时不允许打开聊天窗口
-    if (document.getElementById('app-main').classList.contains('hidden')) return;
-    const st = window._chatState;
-    if (st.visible) {
-        closeChatWindow();
-    } else {
-        // 如果有未读消息且正在闪烁，直接打开未读消息发送者的聊天窗口
-        if (st.blinking && st.unreadFrom) {
-            openChatWindow(st.unreadFromIp, st.unreadFrom);
-        } else if (st.targetIp) {
-            openChatWindow(st.targetIp, st.targetUsername);
-        } else {
-            showToast('请先在用户列表中选择聊天对象');
-            openUserList();
-        }
+    } catch {
+        if (st.chatMessages === conversations) showToast(label + '发送失败。请重新选择文件。');
     }
 }
 
-// ========== 聊天 SSE 监听（接收新消息，触发悬浮球闪烁）==========
+_chatImageUpload.addEventListener('change', () => _chatSendAttachment(_chatImageUpload, 'image', '图片', 10));
+_chatFileUpload.addEventListener('change', () => _chatSendAttachment(_chatFileUpload, 'file', '文件', 50));
+
+window.addEventListener('resize', function() {
+    if (window._chatState.visible) _positionChatWindow();
+});
+
+// ========== 未读聊天提醒 ==========
+const _chatApp = _chatEl('app-main');
+const _chatTabIcon = _chatEl('chat-tab-icon');
+const _chatDefaultTitle = document.title;
+const _chatButton = _chatEl('chat-info-btn');
+const _chatUnreadBadge = _chatEl('chat-unread-badge');
+
+function _isReadingChat(username) {
+    const st = window._chatState;
+    return st.visible && st.targetUsername === username && !document.hidden && document.hasFocus() &&
+        !_chatEl('modal-user-list').open && !_chatEl('chat-history-modal')?.open;
+}
+
+function _updateChatAttention() {
+    let count = 0;
+    for (const unread of window._chatState.unreadBySender.values()) count += unread;
+    const label = count ? count + ' 条新消息' : '聊天消息';
+    document.title = count ? label + ' · ' + _chatDefaultTitle : _chatDefaultTitle;
+    const icon = count ? '/CDN/chat-unread.svg' : '/favicon.ico';
+    if (_chatTabIcon.getAttribute('href') !== icon) _chatTabIcon.setAttribute('href', icon);
+    _chatButton.title = label;
+    _chatButton.setAttribute('aria-label', label);
+    _chatButton.toggleAttribute('data-unread', count > 0);
+    _chatUnreadBadge.textContent = count > 99 ? '99+' : String(count);
+    _chatUnreadBadge.classList.toggle('hidden', count === 0);
+}
+
+function _markOpenChatRead() {
+    const st = window._chatState;
+    if (_isReadingChat(st.targetUsername) && st.unreadBySender.delete(st.targetUsername)) {
+        _updateChatAttention();
+    }
+}
+
+window.addEventListener('focus', _markOpenChatRead);
+document.addEventListener('visibilitychange', _markOpenChatRead);
+_chatEl('modal-user-list').addEventListener('close', _markOpenChatRead);
+
+function toggleChatInfoPanel() {
+    if (_chatApp.classList.contains('hidden')) return;
+    const st = window._chatState;
+    const sender = Array.from(st.unreadBySender.keys()).at(-1);
+    if (sender) {
+        openChatWindow(sender, sender);
+    } else if (st.visible) {
+        closeChatWindow();
+    } else {
+        showToast('请先在用户列表中选择聊天对象');
+        openUserList();
+    }
+}
+
+// ========== 聊天 SSE 监听 ==========
 let _chatEventSource = null;
+let _chatReconnectTimer;
 
 function _startChatSSE() {
-    if (_chatEventSource) return;
-    _chatEventSource = new EventSource('/api/chat/stream');
-    _chatEventSource.addEventListener('message', function(e) {
-        try {
-            const msg = JSON.parse(e.data);
-            const st = window._chatState;
-            // 存入消息列表（按发送者 IP 分桶，_chatAddMessage 内自动处理实时渲染）
-            _chatAddMessage({
-                type: msg.type,
-                content: msg.content,
-                isSelf: false,
-                ip: msg.from,
-                time: msg.time,
-                fileName: msg.fileName,
-                fileUrl: msg.fileUrl
-            });
-            // 如果聊天窗口未正对该发送者打开 → 闪烁提示
-            if (!(st.visible && st.targetUsername === msg.from)) {
-                st.unreadCount++;
-                st.unreadFrom = msg.from;
-                st.unreadFromIp = msg.from;
-                if (!st.blinking) {
-                    st.blinking = true;
-                    _startChatBlink();
-                }
-            }
-        } catch (ex) { /* 忽略解析错误 */ }
+    if (_chatEventSource || _chatApp.classList.contains('hidden')) return;
+    const source = new EventSource('/api/chat/stream');
+    _chatEventSource = source;
+    source.addEventListener('message', event => {
+        if (_chatEventSource !== source) return;
+        let message;
+        try { message = JSON.parse(event.data); } catch { return; }
+
+        const sender = message.from;
+        if (!_chatAddMessage(sender, { ...message, isSelf: false, ip: sender }) || _isReadingChat(sender)) return;
+        const unread = window._chatState.unreadBySender;
+        const count = unread.get(sender) || 0;
+        unread.delete(sender);
+        unread.set(sender, count + 1);
+        _updateChatAttention();
     });
-    _chatEventSource.onerror = function() {
-        _chatEventSource?.close();
+    source.onerror = () => {
+        if (_chatEventSource !== source) return;
+        source.close();
         _chatEventSource = null;
-        // 5秒后重连
-        setTimeout(_startChatSSE, 5000);
+        _chatReconnectTimer = setTimeout(_startChatSSE, 5000);
     };
 }
 
-let _chatBlinkInterval = null;
-function _startChatBlink() {
-    if (_chatBlinkInterval) return; // 已在闪烁中
-    const btn = document.getElementById('chat-info-btn');
-    const svg = btn.querySelector('svg');
-    if (!svg) return;
-    let tick = 0;
-    _chatBlinkInterval = setInterval(() => {
-        if (!window._chatState.blinking) {
-            clearInterval(_chatBlinkInterval);
-            _chatBlinkInterval = null;
-            svg.style.color = '#1296db';
-            svg.style.opacity = '';
-            return;
-        }
-        // 持续交替闪烁，直到用户打开聊天窗口
-        if (tick % 2 === 0) {
-            svg.style.color = '#f59e0b'; // 琥珀色高亮
-            svg.style.opacity = '1';
-        } else {
-            svg.style.color = '#1296db';
-            svg.style.opacity = '0.5';
-        }
-        tick++;
-    }, 400);
-}
-
-// 打开聊天窗口时停止闪烁并清除未读
-const _origOpenChatWindow = openChatWindow;
-openChatWindow = function(targetIp, targetUsername) {
+function _syncChatConnection() {
+    if (!_chatApp.classList.contains('hidden')) {
+        _startChatSSE();
+        return;
+    }
+    clearTimeout(_chatReconnectTimer);
+    _chatEventSource?.close();
+    _chatEventSource = null;
     const st = window._chatState;
-    st.blinking = false;
-    st.unreadCount = 0;
-    st.unreadFrom = null;
-    st.unreadFromIp = null;
-    _origOpenChatWindow(targetIp, targetUsername);
-};
-
-// 等待登录完成后启动 SSE（checkAuth 在第2464行调用，在此之前已执行）
-if (document.getElementById('app-main') && !document.getElementById('app-main').classList.contains('hidden')) {
-    _startChatSSE();
-} else {
-    // 监听 DOM 变化，app-main 显示时启动
-    const observer = new MutationObserver(() => {
-        if (!document.getElementById('app-main').classList.contains('hidden')) {
-            observer.disconnect();
-            _startChatSSE();
-        }
-    });
-    observer.observe(document.getElementById('app-main'), { attributes: true, attributeFilter: ['class'] });
+    st.unreadBySender.clear();
+    st.chatMessages = Object.create(null);
+    window._chatHistoryLoadState = Object.create(null);
+    _updateChatAttention();
 }
+
+new MutationObserver(_syncChatConnection).observe(_chatApp, { attributes: true, attributeFilter: ['class'] });
+_syncChatConnection();
 
 // ========== 聊天历史记录功能 ==========
 
-// 当前加载状态
-let _chatHistoryState = {
-    hasMore: true,
-    loadingMore: false,
-    oldestTime: null
-};
-
 // 历史记录按钮点击
-_chatHistoryBtn.addEventListener('click', function(e) {
-    e.stopPropagation(); // 防止触发拖拽
-    _openHistoryModal();
-});
+_chatHistoryBtn.addEventListener('click', _openHistoryModal);
 
 // 打开历史记录弹窗
 function _openHistoryModal() {
     const modal = document.getElementById('chat-history-modal');
-    modal.classList.add('active');
+    if (!modal.open) modal.showModal();
     document.getElementById('hist-keyword').value = '';
     document.getElementById('hist-date-start').value = '';
     document.getElementById('hist-date-end').value = '';
@@ -5208,13 +4983,16 @@ function _openHistoryModal() {
 // 历史记录弹窗事件在 HTML 之后绑定，见下方 <script>
 
 // 加载聊天历史（按对话对象）
-async function _loadChatHistory(partnerIp, partnerUsername, beforeTime) {
+async function _loadChatHistory(partnerIp, partnerUsername, before) {
     const resultsDiv = document.getElementById('history-results');
     resultsDiv.innerHTML = '<div class="history-loading">加载中...</div>';
 
     try {
         const params = new URLSearchParams({ with: partnerUsername, limit: '100' });
-        if (beforeTime) params.append('before', beforeTime);
+        if (before) {
+            params.set('before', before.time);
+            params.set('beforeId', before.id);
+        }
         const resp = await fetch('/api/chat/history?' + params.toString());
         if (!resp.ok) {
             resultsDiv.innerHTML = '<div class="history-empty">加载失败: HTTP ' + resp.status + '</div>';
@@ -5233,23 +5011,19 @@ async function _loadChatHistory(partnerIp, partnerUsername, beforeTime) {
         if (!data.ok) { resultsDiv.innerHTML = '<div class="history-empty">加载失败</div>'; return; }
 
         if (!data.messages || data.messages.length === 0) {
-            if (beforeTime) {
-                _chatHistoryState.hasMore = false;
-            }
-            resultsDiv.innerHTML = beforeTime
+            resultsDiv.innerHTML = before
                 ? '<div class="history-empty">没有更多记录了</div>'
                 : '<div class="history-empty">暂无聊天记录</div>';
             return;
         }
 
-        _chatHistoryState.hasMore = data.messages.length >= 100;
-        _chatHistoryState.oldestTime = data.messages[data.messages.length - 1].time;
-
         resultsDiv.innerHTML = data.messages.map(m => _renderHistoryItem(m, partnerIp)).join('');
 
         // 添加"加载更多"按钮
-        if (_chatHistoryState.hasMore) {
-            resultsDiv.innerHTML += '<div class="chat-load-more"><button onclick="_loadChatHistory(\'' + partnerIp + '\',\'' + partnerUsername + '\',' + _chatHistoryState.oldestTime + ')">加载更多...</button></div>';
+        if (data.messages.length >= 100) {
+            const oldest = data.messages[data.messages.length - 1];
+            resultsDiv.insertAdjacentHTML('beforeend', '<div class="chat-load-more"><button type="button">加载更多...</button></div>');
+            resultsDiv.lastElementChild.firstElementChild.onclick = () => _loadChatHistory(partnerIp, partnerUsername, oldest);
         }
     } catch (e) {
         resultsDiv.innerHTML = '<div class="history-empty">加载失败: ' + (e.message || '网络错误') + '</div>';
@@ -5423,100 +5197,6 @@ async function _loadArchiveDay(dateStr) {
     }
 }
 
-// 聊天内容区滚动加载更多历史消息（在聊天窗口中）
-_chatContent.addEventListener('scroll', function() {
-    if (_chatContent.scrollTop <= 50 && !_chatHistoryState.loadingMore && _chatHistoryState.hasMore) {
-        _loadMoreChatMessages();
-    }
-});
-
-// 加载更早的聊天消息并插入到聊天窗口顶部
-async function _loadMoreChatMessages() {
-    const st = window._chatState;
-    if (!st.targetIp || !st.targetUsername) return;
-
-    _chatHistoryState.loadingMore = true;
-
-    // 找到当前消息中最旧的时间
-    const msgs = st.chatMessages[st.targetIp] || [];
-    let oldestTime = Date.now();
-    if (msgs.length > 0) {
-        // 找到最小的 time 值
-        for (const m of msgs) {
-            if (m.time && m.time < oldestTime) oldestTime = m.time;
-        }
-    }
-
-    try {
-        const params = new URLSearchParams({
-            with: st.targetUsername,
-            limit: '50',
-            before: String(oldestTime - 1) // 减1避免重复
-        });
-        const resp = await fetch('/api/chat/history?' + params.toString());
-        if (!resp.ok) {
-            _chatHistoryState.hasMore = false;
-            _chatHistoryState.loadingMore = false;
-            return;
-        }
-        const text = await resp.text();
-        if (!text) {
-            _chatHistoryState.hasMore = false;
-            _chatHistoryState.loadingMore = false;
-            return;
-        }
-        let data;
-        try { data = JSON.parse(text); } catch (_) {
-            _chatHistoryState.hasMore = false;
-            _chatHistoryState.loadingMore = false;
-            return;
-        }
-        if (!data.ok || !data.messages || data.messages.length === 0) {
-            _chatHistoryState.hasMore = false;
-            _chatHistoryState.loadingMore = false;
-            return;
-        }
-
-        if (data.messages.length < 50) {
-            _chatHistoryState.hasMore = false;
-        }
-
-        // 将历史消息插入到消息数组开头（倒序插入，保持时间顺序）
-        const historyMsgs = data.messages.reverse().map(m => ({
-            type: m.type,
-            content: m.content,
-            isSelf: m.isSelf,
-            ip: m.from,
-            time: m.time,
-            fileName: m.fileName,
-            fileUrl: m.fileUrl,
-            fileSize: m.fileSize
-        }));
-
-        // 去重后插入
-        const existingTimes = new Set(msgs.map(m => m.time));
-        const newMsgs = historyMsgs.filter(m => !existingTimes.has(m.time));
-        st.chatMessages[st.targetIp] = [...newMsgs, ...msgs];
-
-        // 记录当前滚动高度，渲染后恢复位置
-        const oldScrollHeight = _chatContent.scrollHeight;
-        _chatRenderMessages();
-        const newScrollHeight = _chatContent.scrollHeight;
-        _chatContent.scrollTop = newScrollHeight - oldScrollHeight;
-
-        _chatHistoryState.loadingMore = false;
-    } catch (e) {
-        _chatHistoryState.loadingMore = false;
-    }
-}
-
-// 重置加载状态（切换聊天对象时）
-const _origRenderMessages = _chatRenderMessages;
-_chatRenderMessages = function() {
-    _chatHistoryState.hasMore = true;
-    _chatHistoryState.loadingMore = false;
-    _origRenderMessages();
-};
 </script>
 
 <!-- 图片灯箱 -->
@@ -5527,11 +5207,11 @@ _chatRenderMessages = function() {
 </div>
 
 <!-- 聊天历史记录弹窗 -->
-<div id="chat-history-modal">
+<dialog id="chat-history-modal" aria-labelledby="chat-history-title" onclick="if(event.target===this)this.close()">
     <div class="history-dialog">
         <div class="history-header">
-            <span>聊天记录</span>
-            <button onclick="document.getElementById('chat-history-modal').classList.remove('active')">&times;</button>
+            <span id="chat-history-title">聊天记录</span>
+            <button type="button" onclick="this.closest('dialog').close()" aria-label="关闭聊天记录" autofocus>&times;</button>
         </div>
         <div class="history-search-bar">
             <input type="text" id="hist-keyword" placeholder="搜索消息内容...">
@@ -5544,11 +5224,12 @@ _chatRenderMessages = function() {
             <div class="history-empty">点击"搜索"查找聊天记录，或选择日期范围</div>
         </div>
     </div>
-</div>
+</dialog>
 
 <script>
 // 历史记录弹窗事件绑定（DOM 在此之后才存在）
 (function() {
+    _chatEl('chat-history-modal').addEventListener('close', _markOpenChatRead);
     var searchBtn = document.getElementById('hist-search-btn');
     if (searchBtn) searchBtn.addEventListener('click', function() { _searchHistory(); });
     var archiveBtn = document.getElementById('hist-load-archive-btn');
