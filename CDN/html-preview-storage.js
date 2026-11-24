@@ -118,6 +118,40 @@
         catch { return new TextDecoder().decode(bytes); }
     }
 
+    function reportLayout() {
+        let previousWidth = 0;
+        let previousContent = 0;
+        let pending = false;
+        function schedule() {
+            if (pending) return;
+            pending = true;
+            requestAnimationFrame(() => {
+                pending = false;
+                const viewportWidth = window.innerWidth;
+                const contentWidth = Math.max(viewportWidth, document.scrollingElement?.scrollWidth || 0);
+                if (viewportWidth === previousWidth && contentWidth === previousContent) return;
+                parent.postMessage({
+                    channel: 'LanFileShare.PreviewLayout',
+                    viewportWidth,
+                    contentWidth,
+                    initial: previousWidth === 0
+                }, parentOrigin);
+                previousWidth = viewportWidth;
+                previousContent = contentWidth;
+            });
+        }
+        const observer = new ResizeObserver(schedule);
+        observer.observe(document.documentElement);
+        if (document.body) observer.observe(document.body);
+        new MutationObserver(schedule).observe(document.documentElement, {
+            childList: true, subtree: true, attributes: true,
+            attributeFilter: ['class', 'style', 'hidden', 'width']
+        });
+        window.addEventListener('resize', schedule);
+        document.addEventListener('load', schedule, true);
+        schedule();
+    }
+
     async function render() {
         // Load the snapshot before the shared document's first script runs.
         const [snapshots, response] = await Promise.all([
@@ -138,6 +172,7 @@
         });
         document.write(html);
         document.close();
+        reportLayout();
     }
 
     render().catch(() => {

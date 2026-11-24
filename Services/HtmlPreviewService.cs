@@ -14,6 +14,7 @@ internal static class HtmlPreviewService
     internal const string FrameRequiredPolicy = "base-uri 'none'";
     internal const string SourceMediaType = "application/vnd.lanfileshare.preview+html";
     private const string StorageScriptPath = "/CDN/html-preview-storage.js";
+    private const string LayoutScriptPath = "/CDN/html-preview-layout.js";
     private const string InteractiveSandboxPermissions = "allow-scripts allow-forms";
     private const string PackageCdnSources =
         "https://cdn.jsdelivr.net https://cdnjs.cloudflare.com/ajax/libs/ https://unpkg.com " +
@@ -64,13 +65,23 @@ internal static class HtmlPreviewService
         var authority = origin.GetLeftPart(UriPartial.Authority);
         var isIpv6 = origin.HostNameType == UriHostNameType.IPv6;
         var frameSource = isIpv6 ? "'self'" : authority + pageUrl[..(pageUrl.LastIndexOf('/') + 1)];
-        var storageScript = isIpv6 ? "" : $"<script src=\"{StorageScriptPath}\"></script>";
+        var scripts = isIpv6 ? "" : $"""
+            <script defer src="{LayoutScriptPath}"></script>
+            <script src="{StorageScriptPath}"></script>
+            """;
+        var toolbar = isIpv6 ? "" : """
+            <nav class="preview-modes" aria-label="预览布局">
+                <button type="button" data-mode="auto" aria-pressed="true">自适应</button>
+                <button type="button" data-mode="phone" aria-pressed="false">手机布局</button>
+                <button type="button" data-mode="fit" aria-pressed="false">适合宽度</button>
+            </nav>
+            """;
         var scope = Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(
             new[] { userId, Path.GetDirectoryName(fullPath)!.ToUpperInvariant() })));
         var response = request.HttpContext.Response;
         response.Headers["Content-Security-Policy"] =
             $"default-src 'none'; style-src 'unsafe-inline'; frame-src {frameSource}; frame-ancestors 'none'; base-uri 'none'; form-action 'none'" +
-            (isIpv6 ? "" : $"; script-src {authority}{StorageScriptPath}");
+            (isIpv6 ? "" : $"; script-src {authority}{StorageScriptPath} {authority}{LayoutScriptPath}");
         response.Headers["Referrer-Policy"] = "strict-origin";
         response.Headers["X-Content-Type-Options"] = "nosniff";
         var title = HtmlEncoder.Default.Encode(Path.GetFileName(fullPath));
@@ -80,12 +91,33 @@ internal static class HtmlPreviewService
             <html lang="zh-CN" data-preview-scope="{{scope}}">
             <head>
                 <meta charset="utf-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1">
+                <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
                 <title>{{title}}</title>
-                <style>body { margin: 0; } iframe { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; }</style>
-                {{storageScript}}
+                <style>
+                    body { margin: 0; height: 100vh; height: 100dvh; height: var(--preview-height, 100dvh);
+                           box-sizing: border-box; display: flex; flex-direction: column;
+                           padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+                           color: #1e293b; background: #f1f5f9; font: 14px system-ui, sans-serif; }
+                    .preview-modes { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px;
+                                     padding: 4px; border-bottom: 1px solid #cbd5e1; background: white; }
+                    .preview-modes button { min-height: 44px; padding: 0 12px; border: 0; border-radius: 6px;
+                                            background: transparent; color: inherit; font: inherit; cursor: pointer; }
+                    .preview-modes button[aria-pressed="true"] { background: #dbeafe; color: #1e40af; font-weight: 600; }
+                    .preview-modes button:focus-visible { outline: 2px solid #2563eb; outline-offset: -2px; }
+                    .preview-viewport { flex: 1 1 auto; min-height: 0; position: relative; overflow: hidden; }
+                    .preview-viewport iframe { display: block; position: absolute; top: 0; left: 50%;
+                                               width: 100%; height: 100%; max-width: none; border: 0; background: white;
+                                               transform: translateX(-50%) scale(var(--preview-scale, 1));
+                                               transform-origin: top center; }
+                </style>
+                {{scripts}}
             </head>
-            <body><iframe src="{{source}}" title="{{title}}" sandbox="{{InteractiveSandboxPermissions}}" csp="{{FrameRequiredPolicy}}"></iframe></body>
+            <body>
+                {{toolbar}}
+                <main class="preview-viewport">
+                    <iframe src="{{source}}" title="{{title}}" sandbox="{{InteractiveSandboxPermissions}}" csp="{{FrameRequiredPolicy}}"></iframe>
+                </main>
+            </body>
             </html>
             """, "text/html; charset=utf-8");
     }
